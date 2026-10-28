@@ -1,0 +1,174 @@
+name: iOS Unsigned Build
+
+# ==============================================================
+# 在 GitHub 官方 macOS runner 上编译 iOS App（未签名）
+#
+# 为什么用这个而不是本地：
+#   本机是 Windows，没有 Xcode，编译不了 iOS。
+#   GitHub 提供免费的 macOS runner，10–15 分钟出一个未签名 .ipa。
+#
+# 为什么编译未签名：
+#   免费 Apple ID 签出来的证书只能 7 天有效期，且不能用于分发。
+#   所以策略是：云端编译 → 下载 .ipa → 本机 Sideloadly 用你的 Apple ID 签名。
+#
+# 触发方式：Actions → iOS Unsigned Build → Run workflow
+# ==============================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: '构建配置'
+        type: choice
+        options:
+          - Release
+          - Debug
+        default: Release
+      run_tests:
+        description: '是否运行测试'
+        type: boolean
+        default: true
+
+  # 推 main 时自动构建（文档改动除外，省 macOS 分钟）
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'Tools/**'
+      - 'FamilyWardrobeTests/**'
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build iOS
+    # macOS 14 自带 Xcode 15.x / 16.x；iOS 17 部署目标够用
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    env:
+      PROJECT_NAME: FamilyWardrobe
+      SCHEME: FamilyWardrobe
+      CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          echo "Available Xcode versions:"
+          ls /Applications | grep Xcode
+          # 选一个稳定版本（不含 beta）
+          XCODE=$(ls /Applications | grep -E '^Xcode' | grep -v beta | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -switch /Applications/$XCODE
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen --version
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          ls -la FamilyWardrobe.xcodeproj
+
+      - name: Show available simulators
+        run: |
+          xcrun simctl list runtimes | head -20
+
+      - name: Run tests
+        if: ${{ github.event.inputs.run_tests != 'false' && github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project FamilyWardrobe.xcodeproj \
+            -scheme FamilyWardrobe \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee test-output.log
+          echo "=== Test Summary ==="
+          grep -E "Test Suite|Executed [0-9]+ test" test-output.log | tail -20 || true
+
+      - name: Build simulator app
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project FamilyWardrobe.xcodeproj \
+            -scheme FamilyWardrobe \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build-output.log
+          echo "=== Build Result ==="
+          ls -la build/Build/Products/Debug-iphonesimulator/ || true
+
+      - name: Build unsigned device app
+        run: |
+          set -o pipefail
+          # 编译真机架构但不做签名 —— 供 Sideloadly 本地签名用
+          xcodebuild build \
+            -project FamilyWardrobe.xcodeproj \
+            -scheme FamilyWardrobe \
+            -configuration $CONFIGURATION \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build-device \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tee build-device-output.log
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH=$(find build-device/Build/Products -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ 没有找到 .app"
+            ls -R build-device/Build/Products || true
+            exit 1
+          fi
+          echo "打包: $APP_PATH"
+
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          # 塞一个空 Info.plist 供 Sideloadly 修改签名
+          touch Payload/Info.plist
+
+          mkdir -p artifacts
+          IPA="artifacts/${PROJECT_NAME}-unsigned.ipa"
+          zip -qry "$IPA" Payload
+          rm -rf Payload
+          echo "✅ 生成: $IPA"
+          ls -la artifacts/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ PROJECT_NAME }}-unsigned-ipa
+          path: artifacts/*.ipa
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ PROJECT_NAME }}-simulator-app
+          path: build/Build/Products/Debug-iphonesimulator/*.app
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build-output.log
+            build-device-output.log
+            test-output.log
+          retention-days: 7
+          if-no-files-found: ignore
