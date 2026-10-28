@@ -1,0 +1,321 @@
+/* ============================================================
+   设计系统（v1.0 定稿，从原生版规范转译）
+   规范来源：《页面清单与交互规格》第五章
+   ============================================================ */
+
+page {
+  --brand: #4C63E6;
+  --page: #F6F6F8;
+  --card: #FFFFFF;
+  --text: #1C1C1E;
+  --text2: #9A9AA0;
+  --text3: #C7C7CC;
+  --border: #E8E8EC;
+  --btn: #F2F2F5;
+  --thumb: #F3F3F5;
+
+  /* 圆角 */
+  --r-card: 24rpx;      /* r12pt */
+  --r-thumb: 20rpx;     /* r10pt */
+  --r-chip: 24rpx;
+
+  /* 间距 */
+  --gap-group: 20rpx;   /* 分组间距 10pt */
+  --gap-inner: 24rpx;   /* 卡内图文间距 12pt */
+  --gap-thumb: 16rpx;   /* 缩略图间距 8pt */
+  --screen-margin: 24rpx;
+
+  /* 尺寸 */
+  --thumb-size: 104rpx; /* 52pt */
+  --seg-height: 56rpx;  /* 28pt */
+
+  background: var(--page);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  font-size: 26rpx;     /* 13pt 正文 */
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 卡片 ---------- */
+
+.card {
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-card);
+  padding: var(--gap-inner);
+  margin-bottom: var(--gap-group);
+}
+
+/* 组头：标题 + 件数 + 排序按钮 */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: var(--gap-inner);
+}
+
+.card-title {
+  font-size: 24rpx;      /* 12pt / 500 */
+  font-weight: 500;
+  color: var(--text);
+}
+
+.card-count {
+  font-size: 22rpx;      /* 11pt / 400 */
+  color: var(--text2);
+}
+
+.card-sort {
+  margin-left: auto;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 12rpx;
+  background: var(--btn);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text2);
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+/* ---------- 缩略图 ---------- */
+
+.thumb {
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  border-radius: var(--r-thumb);
+  background: var(--thumb);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.thumb-image {
+  width: 100%;
+  height: 100%;
+}
+
+/* 缩略图绝不叠文字 —— 这是硬要求 */
+
+/* ---------- 胶囊标签 ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 10rpx 22rpx;
+  border-radius: var(--r-chip);
+  background: var(--btn);
+  font-size: 22rpx;
+  color: var(--text2);
+  margin-right: 12rpx;
+  margin-bottom: 12rpx;
+  line-height: 1.4;
+}
+
+.chip.on {
+  background: var(--brand);
+  color: #FFFFFF;
+}
+
+/* ---------- 按钮 ---------- */
+
+.btn-primary {
+  width: 100%;
+  height: 88rpx;
+  border-radius: 20rpx;
+  background: var(--brand);
+  color: #FFFFFF;
+  font-size: 28rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  margin-top: 24rpx;
+  line-height: 1;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-primary.disabled {
+  background: var(--text3);
+}
+
+.btn-ghost {
+  width: 100%;
+  height: 88rpx;
+  border-radius: 20rpx;
+  background: var(--btn);
+  color: var(--text);
+  font-size: 28rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  margin-top: 16rpx;
+  line-height: 1;
+}
+
+.btn-ghost::after {
+  border: none;
+}
+
+/* ---------- 文字 ---------- */
+
+.h1 {
+  font-size: 40rpx;      /* 20pt */
+  font-weight: 500;
+  color: var(--text);
+}
+
+.sub {
+  font-size: 22rpx;
+  color: var(--text2);
+  margin-bottom: 28rpx;
+}
+
+.hint {
+  font-size: 24rpx;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+.metric-value {
+  font-size: 34rpx;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.metric-label {
+  font-size: 22rpx;
+  color: var(--text2);
+  text-align: center;
+  margin-top: 4rpx;
+}
+
+.metric-unit {
+  font-size: 22rpx;
+  color: var(--text2);
+  margin-left: 4rpx;
+}
+
+.metric-divider {
+  width: 0.5px;
+  height: 56rpx;
+  background: var(--border);
+}
+
+/* ---------- 属性行 ---------- */
+
+.attr-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 26rpx;
+}
+
+.attr-row:last-child {
+  border-bottom: none;
+}
+
+.attr-key {
+  color: var(--text2);
+}
+
+.attr-value {
+  color: var(--text);
+  text-align: right;
+}
+
+/* ---------- 滚动容器 ---------- */
+
+.scroll-x {
+  display: flex;
+  white-space: nowrap;
+}
+
+.scroll-x::-webkit-scrollbar {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+/* 行尾半露一张卡 —— "还能滑"的唯一信号 */
+.scroll-x-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.scroll-x-fade {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 32rpx;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), #FFFFFF);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ---------- 悬浮按钮 ---------- */
+
+.fab {
+  position: fixed;
+  right: 32rpx;
+  bottom: 140rpx;
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 42rpx;
+  background: var(--brand);
+  color: #FFFFFF;
+  font-size: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(76, 99, 230, 0.35);
+  z-index: 20;
+  line-height: 1;
+}
+
+/* ---------- 空状态 ---------- */
+
+.empty {
+  padding: 120rpx 48rpx;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 72rpx;
+  color: var(--text3);
+  margin-bottom: 16rpx;
+  line-height: 1;
+}
+
+.empty-title {
+  font-size: 30rpx;
+  color: var(--text);
+  margin-bottom: 8rpx;
+}
+
+.empty-desc {
+  font-size: 24rpx;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+/* ---------- 分隔 ---------- */
+
+.sep {
+  height: 0.5px;
+  background: var(--border);
+}

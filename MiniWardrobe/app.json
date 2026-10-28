@@ -1,0 +1,59 @@
+{
+  "pages": [
+    "pages/wardrobe/index",
+    "pages/today/index",
+    "pages/calendar/index",
+    "pages/inspiration/index",
+    "pages/settings/index",
+    "pages/detail/index",
+    "pages/entry/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#F6F6F8",
+    "navigationBarTitleText": "家庭衣橱",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F6F6F8"
+  },
+  "tabBar": {
+    "color": "#9A9AA0",
+    "selectedColor": "#4C63E6",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/wardrobe/index",
+        "text": "衣橱",
+        "iconPath": "assets/icons/wardrobe.png",
+        "selectedIconPath": "assets/icons/wardrobe-active.png"
+      },
+      {
+        "pagePath": "pages/today/index",
+        "text": "今天",
+        "iconPath": "assets/icons/today.png",
+        "selectedIconPath": "assets/icons/today-active.png"
+      },
+      {
+        "pagePath": "pages/calendar/index",
+        "text": "日历",
+        "iconPath": "assets/icons/calendar.png",
+        "selectedIconPath": "assets/icons/calendar-active.png"
+      },
+      {
+        "pagePath": "pages/inspiration/index",
+        "text": "灵感",
+        "iconPath": "assets/icons/inspiration.png",
+        "selectedIconPath": "assets/icons/inspiration-active.png"
+      },
+      {
+        "pagePath": "pages/settings/index",
+        "text": "设置",
+        "iconPath": "assets/icons/settings.png",
+        "selectedIconPath": "assets/icons/settings-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}
