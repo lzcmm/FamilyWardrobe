@@ -1,0 +1,135 @@
+name: FamilyWardrobe
+
+# ==========================================================================
+# 三个 workflow：
+#   ios-simulator  —— 模拟器包，用 App Preview 在浏览器里直接看效果（不消耗证书）
+#   ios-testflight —— 上传 TestFlight 内部测试组，自己和家人一键装
+#   ios-adhoc      —— 分发给登记过 UDID 的设备，证书有效期一年，无 90 天期限
+#
+# 触发方式：只用 REST API 触发（cm_build.py start），yaml 不配 triggering，
+# 避免误触发付费构建。
+# ==========================================================================
+
+workflows:
+
+  # --------------------------------------------------------------------------
+  # 模拟器包 · 用于快速看 UI 效果
+  # --------------------------------------------------------------------------
+  ios-simulator:
+    name: iOS Simulator
+    environment:
+      xcode: latest
+    scripts:
+      - name: Generate Xcode project
+        script: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build simulator app
+        script: |
+          xcodebuild build \
+            -project FamilyWardrobe.xcodeproj \
+            -scheme FamilyWardrobe \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+      - name: Run migration tests
+        script: |
+          xcodebuild test \
+            -project FamilyWardrobe.xcodeproj \
+            -scheme FamilyWardrobe \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+    artifacts:
+      - build/Build/Products/Debug-iphonesimulator/FamilyWardrobe.app
+
+  # --------------------------------------------------------------------------
+  # TestFlight · 内部测试（自己 + 家人）
+  # 注意：内部测试无需 Beta 审核，处理完即可安装。但每个构建 90 天过期，
+  #       过期前需要重新构建上传一次。
+  # --------------------------------------------------------------------------
+  ios-testflight:
+    name: iOS TestFlight
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.familywardrobe.app
+    scripts:
+      - name: Generate Xcode project
+        script: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Configure signing
+        script: xcode-project use-profiles
+
+      - name: Build and upload
+        script: |
+          xcodebuild archive \
+            -project FamilyWardrobe.xcodeproj \
+            -scheme FamilyWardrobe \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Generic.xcarchive \
+            -destination generic/platform=iOS \
+            CODE_SIGN_STYLE=Manual
+
+          xcodebuild -exportArchive \
+            -archivePath build/Generic.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist $HOME/export_options.plist
+
+          xcrun altool --upload-app -f build/ipa/FamilyWardrobe.ipa \
+            -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # beta_groups:
+        #   - 家庭内部
+
+    artifacts:
+      - build/ipa/*.ipa
+
+  # --------------------------------------------------------------------------
+  # Ad Hoc · 分发给已登记 UDID 的设备
+  # 优点：证书有效期一年，没有 90 天过期限制。适合装在自己和家人的主力机。
+  # 前提：设备的 UDID 必须已登记到开发者后台。
+  # --------------------------------------------------------------------------
+  ios-adhoc:
+    name: iOS Ad Hoc
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: com.familywardrobe.app
+    scripts:
+      - name: Generate Xcode project
+        script: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Configure signing
+        script: xcode-project use-profiles
+
+      - name: Build IPA
+        script: |
+          xcodebuild archive \
+            -project FamilyWardrobe.xcodeproj \
+            -scheme FamilyWardrobe \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Generic.xcarchive
+
+          xcodebuild -exportArchive \
+            -archivePath build/Generic.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist $HOME/export_options.plist
+
+    artifacts:
+      - build/ipa/*.ipa

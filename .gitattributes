@@ -1,0 +1,13 @@
+# Swift / Xcode 源码必须用 LF。CRLF 在 Xcode 里会导致编译报错或诡异行为。
+* text=auto eol=lf
+*.swift text eol=lf
+*.h text eol=lf
+*.m text eol=lf
+*.plist text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.png binary
+*.jpg binary
+*.xcassets text eol=lf
