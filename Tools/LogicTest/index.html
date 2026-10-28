@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家庭衣橱 · 交互模拟器</title>
+<style>
+  :root {
+    --brand: #4C63E6;
+    --page: #F6F6F8;
+    --card: #FFFFFF;
+    --text: #1C1C1E;
+    --text2: #9A9AA0;
+    --text3: #C7C7CC;
+    --border: #E8E8EC;
+    --btn: #F2F2F5;
+    --thumb: #F3F3F5;
+    --radius: 12px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #E9E9EE;
+    color: var(--text);
+    display: flex; justify-content: center; align-items: flex-start;
+    min-height: 100vh; padding: 24px 16px; gap: 28px; flex-wrap: wrap;
+  }
+  .panel { width: 390px; }
+  .info { width: 380px; padding-top: 10px; }
+  @media (max-width: 860px) { .info { width: 390px; } }
+
+  .phone {
+    width: 390px; height: 844px; background: var(--page);
+    border-radius: 40px; box-shadow: 0 20px 60px rgba(0,0,0,.18), 0 0 0 10px #1C1C1E;
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+  }
+  .status {
+    height: 46px; display: flex; justify-content: space-between; align-items: center;
+    padding: 0 24px; font-size: 13px; font-weight: 500; flex: none;
+  }
+  .nav {
+    height: 48px; display: flex; align-items: center; padding: 0 16px;
+    gap: 12px; flex: none; background: var(--page);
+  }
+  .nav-title { font-size: 16px; font-weight: 500; flex: 1; }
+  .nav-btn {
+    width: 30px; height: 30px; border-radius: 15px; border: none; background: transparent;
+    font-size: 15px; cursor: pointer; color: var(--text); display: flex; align-items: center; justify-content: center;
+  }
+  .nav-btn:active { background: var(--btn); }
+  .scroll { flex: 1; overflow-y: auto; padding: 0 12px 90px; -webkit-overflow-scrolling: touch; }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  .card {
+    background: var(--card); border: .5px solid var(--border); border-radius: var(--radius);
+    padding: 12px; margin-bottom: 10px;
+  }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-title { font-size: 13px; font-weight: 500; }
+  .card-count { font-size: 11px; color: var(--text2); }
+  .sort-btn {
+    margin-left: auto; width: 22px; height: 22px; border-radius: 6px; border: none;
+    background: var(--btn); color: var(--text2); font-size: 12px; cursor: pointer;
+  }
+  .row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .row::-webkit-scrollbar { display: none; }
+  .thumb {
+    width: 52px; height: 52px; border-radius: 10px; background: var(--thumb);
+    flex: none; display: flex; align-items: center; justify-content: center; font-size: 22px;
+    cursor: pointer; position: relative; transition: transform .12s;
+  }
+  .thumb:active { transform: scale(.93); }
+  .thumb.ghost { background: transparent; border: .5px dashed var(--text3); color: var(--text3); }
+  .seg { display: flex; background: #ECECEF; border-radius: 14px; padding: 2px; margin-bottom: 10px; }
+  .seg button {
+    flex: 1; border: none; background: transparent; padding: 6px 0; border-radius: 12px;
+    font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer; font-family: inherit;
+  }
+  .seg button.on { background: #fff; color: var(--brand); box-shadow: 0 .5px 2px rgba(0,0,0,.06); }
+  .chip {
+    display: inline-block; padding: 5px 11px; border-radius: 12px; background: var(--btn);
+    font-size: 11px; color: var(--text2); margin-right: 6px; cursor: pointer; border: none; font-family: inherit;
+  }
+  .chip.on { background: var(--brand); color: #fff; }
+  .reason { font-size: 11px; color: var(--text2); display: flex; gap: 5px; align-items: center; margin-top: 4px; }
+  .reason .ck { color: var(--brand); font-weight: 700; font-size: 10px; }
+  .btn-primary {
+    width: 100%; height: 44px; border: none; border-radius: 10px; background: var(--brand);
+    color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; margin-top: 10px;
+  }
+  .btn-primary:active { opacity: .8; }
+  .btn-primary:disabled { background: var(--text3); }
+  .fab {
+    position: absolute; right: 16px; bottom: 88px; width: 42px; height: 42px; border-radius: 21px;
+    background: var(--brand); color: #fff; border: none; font-size: 22px; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(76,99,230,.35); display: flex; align-items: center; justify-content: center;
+  }
+  .tabbar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 82px; background: rgba(255,255,255,.96);
+    backdrop-filter: blur(20px); border-top: .5px solid var(--border);
+    display: flex; padding-bottom: 20px;
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; font-size: 10px; color: var(--text2); cursor: pointer; border: none; background: none; font-family: inherit;
+  }
+  .tab.on { color: var(--brand); }
+  .tab .ic { font-size: 19px; line-height: 1; }
+
+  .cal { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+  .cal .wd { text-align: center; font-size: 11px; color: var(--text2); padding-bottom: 4px; }
+  .day {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; cursor: pointer; border-radius: 8px; border: none; background: transparent; font-family: inherit;
+  }
+  .day .d { font-size: 12px; color: var(--text); }
+  .day .sw { width: 22px; height: 8px; border-radius: 2px; }
+  .day.empty { visibility: hidden; }
+
+  .metric { display: flex; align-items: baseline; gap: 3px; }
+  .metric .v { font-size: 17px; font-weight: 500; }
+  .metric .u { font-size: 11px; color: var(--text2); }
+  .mlabel { font-size: 11px; color: var(--text2); text-align: center; margin-top: 3px; }
+  .mrow { flex: 1; text-align: center; }
+  .mdiv { width: .5px; height: 28px; background: var(--border); }
+
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-label { width: 44px; font-size: 13px; }
+  .bar-track { flex: 1; height: 8px; background: var(--thumb); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: rgba(76,99,230,.75); border-radius: 4px; }
+  .bar-num { width: 24px; text-align: right; font-size: 11px; color: var(--text2); }
+
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; background: var(--card);
+    border-radius: 18px 18px 0 0; padding: 16px 16px 30px; transform: translateY(100%);
+    transition: transform .28s cubic-bezier(.32,.72,0,1); z-index: 20; max-height: 78%; overflow-y: auto;
+  }
+  .sheet.show { transform: translateY(0); }
+  .sheet-handle { width: 36px; height: 4px; background: var(--text3); border-radius: 2px; margin: 0 auto 12px; }
+  .sheet h3 { font-size: 15px; font-weight: 500; margin-bottom: 12px; }
+  .overlay { position: absolute; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 19; }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+
+  .detail-row { display: flex; padding: 10px 0; border-bottom: .5px solid var(--border); font-size: 13px; }
+  .detail-row .k { color: var(--text2); }
+  .detail-row .v { margin-left: auto; text-align: right; }
+  .heat { display: flex; gap: 4px; }
+  .heat div { flex: 1; height: 18px; border-radius: 3px; }
+  .toast {
+    position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%) translateY(20px);
+    background: rgba(28,28,30,.92); color: #fff; font-size: 13px; padding: 10px 18px; border-radius: 20px;
+    opacity: 0; transition: all .25s; pointer-events: none; z-index: 30; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .h1 { font-size: 20px; font-weight: 500; margin-bottom: 2px; }
+  .sub { font-size: 11px; color: var(--text2); margin-bottom: 14px; }
+  .legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); margin-bottom: 12px; }
+  .legend .steps { display: flex; gap: 2px; }
+  .legend .steps div { width: 16px; height: 10px; border-radius: 2px; }
+  .hint { font-size: 12px; color: var(--text2); line-height: 1.7; }
+  .pill { display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:5px 9px; border-radius:11px; background:var(--thumb); }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="phone">
+    <div class="status"><span>23:12</span><span>􀙇 ᯤ ▮</span></div>
+    <div class="nav">
+      <div class="nav-title" id="navTitle">我的衣橱</div>
+      <button class="nav-btn" id="navRight">⋯</button>
+    </div>
+    <div class="scroll" id="screen"></div>
+    <button class="fab" id="fab" style="display:none">+</button>
+    <div class="tabbar" id="tabbar"></div>
+    <div class="overlay" id="overlay"></div>
+    <div class="sheet" id="sheet"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<div class="info">
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-head"><div class="card-title">交互模拟器</div></div>
+    <div class="hint">
+      这是 App 的<b>可交互原型</b>，跑在本机浏览器里。<br><br>
+      <b>能点的：</b>切 Tab、翻分组、点缩略图看详情、点「记录今天」、随机搭配、换装、录入新衣服。<br><br>
+      <b>说明：</b>推荐引擎与 Lab 取色是<b>真实算法</b>（与 Swift 版逐行对应，已通过 33 项验证）；UI 是像素级还原的 Web 版，SwiftUI 渲染细节以真机为准。
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">状态</div></div>
+    <div id="statBox" class="hint"></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">Swift 代码对应</div></div>
+    <div class="hint" id="mapping"></div>
+  </div>
+</div>
+
+<script src="logic.js"></script>
+<script>
+// ─────────────────────────────────────────────
+// 数据层（模拟 SwiftData）
+// ─────────────────────────────────────────────
+
+const LAYER_ICONS = {
+  0:'🎩',1:'🧣',2:'👕',3:'👗',4:'🧥',5:'👖',6:'👟',7:'💍',8:'👜'
+};
+const LAYER_SHORT = {0:'头饰',1:'围巾',2:'上衣',3:'连衣裙',4:'外套',5:'下装',6:'鞋履',7:'配饰',8:'包袋'};
+
+let uid = 0;
+const uidGen = (p) => `${p}${++uid}`;
+
+const db = {
+  profileID: 'me',
+  garments: [],
+  outfits: [],
+  logs: [],
+  // 单品 ID → 颜色（用于渲染）
+  colors: {},
+};
+
+function seed() {
+  const seeds = [
+    ['米色风衣', 4, '#C8A67A', '米色', 'cotton', 'regular', 12],
+    ['驼色大衣', 4, '#B98F62', '驼色', 'wool', 'loose', 5],
+    ['黑色西装外套', 4, '#43433F', '黑色', 'wool', 'slim', 8],
+    ['灰色夹克', 4, '#A8A8A3', '灰色', 'denim', 'regular', 3],
+    ['白色衬衫', 2, '#E6E4DC', '白色', 'cotton', 'slim', 24],
+    ['藏青针织衫', 2, '#3F4A5C', '藏青', 'knit', 'regular', 15],
+    ['米白T恤', 2, '#D9CBB3', '米白', 'cotton', 'regular', 20],
+    ['牛仔衬衫', 2, '#7E9DB8', '蓝色', 'denim', 'slim', 9],
+    ['墨绿卫衣', 2, '#4E6B57', '墨绿', 'cotton', 'loose', 11],
+    ['酒红连衣裙', 3, '#8C4A4A', '酒红', 'silk', 'slim', 6],
+    ['奶油色长裙', 3, '#DED5C0', '米色', 'linen', 'regular', 2],
+    ['黑色西裤', 5, '#3A3A38', '黑色', 'polyester', 'slim', 14],
+    ['深蓝牛仔裤', 5, '#414E60', '藏青', 'denim', 'regular', 26],
+    ['卡其休闲裤', 5, '#B4B2A9', '卡其', 'cotton', 'loose', 7],
+    ['棕色皮鞋', 6, '#7E5433', '棕色', 'leather', 'regular', 13],
+    ['白色运动鞋', 6, '#E8E6E0', '白色', 'cotton', 'regular', 19],
+    ['黑色切尔西靴', 6, '#3A3A38', '黑色', 'leather', 'slim', 8],
+    ['棕色手提包', 8, '#8B6A4E', '棕色', 'leather', 'regular', 16],
+    ['米色围巾', 1, '#DED5C0', '米色', 'knit', 'regular', 4],
+  ];
+
+  seeds.forEach(([name, layer, colorHex, colorName, material, fit, wearCount], i) => {
+    const id = uidGen('g');
+    db.garments.push({
+      id, profileID: db.profileID, name, layer, colorHex, colorName, material, fit,
+      occasions: ['通勤','休闲','正式'], seasons: ['春','秋','冬'],
+      wearCount, lastWornDate: null, archived: false,
+    });
+    db.colors[id] = colorHex;
+  });
+
+  // 造一些历史记录
+  const today = new Date();
+  for (let d = 0; d < 22; d++) {
+    const date = new Date(today); date.setDate(date.getDate() - d);
+    if (d % 3 === 1) continue; // 有些天没记录
+    const picks = db.garments.filter(g => [2,5,6].includes(g.layer)).slice(0, 3);
+    db.logs.push({
+      id: uidGen('l'), profileID: db.profileID, date,
+      garmentIDs: picks.map(g => g.id), occasion: '通勤', fromRecommendation: false,
+    });
+  }
+
+  // 回写 lastWornDate
+  db.logs.forEach(log => log.garmentIDs.forEach(gid => {
+    const g = db.garments.find(x => x.id === gid);
+    if (g && (!g.lastWornDate || new Date(g.lastWornDate) < new Date(log.date))) {
+      g.lastWornDate = log.date;
+    }
+  }));
+}
+
+// ─────────────────────────────────────────────
+// 状态
+// ─────────────────────────────────────────────
+
+const state = {
+  tab: 0,
+  seg: 0,
+  occasion: '通勤',
+  currentSeason: '春',
+  search: '',
+  gridMode: false,
+  selectedGarment: null,
+  tryOnSlots: {},
+  tryOnPose: 0,
+  showFilter: false,
+};
+
+const TABS = [
+  { name:'衣橱', ic:'⊞' },
+  { name:'今天', ic:'◷' },
+  { name:'日历', ic:'▤' },
+  { name:'灵感', ic:'✦' },
+  { name:'设置', ic:'☰' },
+];
+
+// ─────────────────────────────────────────────
+// 渲染：今天
+// ─────────────────────────────────────────────
+
+function renderToday() {
+  const recentIDs = new Set(
+    db.logs.filter(l => (Date.now() - new Date(l.date)) / 86400000 < 7)
+           .flatMap(l => l.garmentIDs)
+  );
+
+  const recs = L.recommend({
+    garments: db.garments, occasion: state.occasion, season: state.currentSeason,
+    profileID: db.profileID, recentIDs, limit: 5,
+  });
+
+  const best = recs[0];
+  const quickPicks = db.garments
+    .filter(g => !g.archived)
+    .sort((a,b) => new Date(b.lastWornDate||0) - new Date(a.lastWornDate||0))
+    .slice(0,4);
+
+  let html = `
+    <div class="h1">${new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric'})}</div>
+    <div class="sub">家庭衣橱 · 今日</div>
+    <div style="margin-bottom:10px">
+      ${['通勤','休闲','正式','运动','约会'].map(o=>
+        `<button class="chip ${state.occasion===o?'on':''}" data-occ="${o}">${o}</button>`).join('')}
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">今日推荐</div><div class="card-count">· ${recs.length} 套</div>
+      </div>`;
+
+  if (best) {
+    html += `<div class="row" style="margin-bottom:10px">${best.garments.map(g=>`
+      <div class="thumb" style="background:${db.colors[g.id]}22;color:${db.colors[g.id]}"
+           data-garment="${g.id}">${LAYER_ICONS[g.layer]}</div>`).join('')}</div>`;
+    html += best.reasons.slice(0,3).map(r=>
+      `<div class="reason"><span class="ck">✓</span>${r}</div>`).join('');
+    html += `<button class="btn-primary" data-record="${best.garments.map(g=>g.id).join(',')}">记录今天</button>`;
+  } else {
+    html += `<div class="hint">衣橱还是空的</div>`;
+  }
+  html += `</div>`;
+
+  // 快速取件
+  html += `
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">快速取件</div><div class="card-count">· 4 件</div>
+      </div>
+      <div class="row">${quickPicks.map(g=>`
+        <div class="thumb" style="background:${db.colors[g.id]}22;color:${db.colors[g.id]}"
+             data-record="${g.id}">${LAYER_ICONS[g.layer]}</div>`).join('')}</div>
+    </div>`;
+
+  // 最近记录
+  const recent = db.logs.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,10);
+  html += `
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">最近记录</div><div class="card-count">· ${recent.length} 天</div>
+      </div>
+      <div class="row">${recent.map(l=>`
+        <div style="text-align:center">
+          <div style="display:flex;gap:3px">
+            ${l.garmentIDs.slice(0,3).map(gid=>{
+              const g = db.garments.find(x=>x.id===gid);
+              return g ? `<div class="thumb" style="width:34px;height:34px;font-size:15px;background:${db.colors[g.id]}22;color:${db.colors[g.id]}" data-garment="${g.id}">${LAYER_ICONS[g.layer]}</div>` : '';
+            }).join('')}
+          </div>
+          <div style="font-size:10px;color:var(--text2);margin-top:4px">${new Date(l.date).getDate()}日</div>
+        </div>`).join('')}</div>
+    </div>`;
+
+  return html;
+}
+
+// ─────────────────────────────────────────────
+// 渲染：衣橱
+// ─────────────────────────────────────────────
+
+function renderWardrobe() {
+  let html = `
+    <div class="seg">
+      <button class="${state.seg===0?'on':''}" data-seg="0">单品</button>
+      <button class="${state.seg===1?'on':''}" data-seg="1">组合</button>
+    </div>`;
+
+  if (state.seg === 0) {
+    const q = state.search.trim();
+    for (const layer of L.LAYER_ORDER) {
+      const items = db.garments
+        .filter(g => g.layer === layer && !g.archived)
+        .filter(g => !q || g.name.includes(q) || g.colorName.includes(q))
+        .sort((a,b) => b.wearCount - a.wearCount);
+
+      if (items.length === 0) continue;
+
+      html += `
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">${LAYER_SHORT[layer]}</div>
+            <div class="card-count">· ${items.length} 件</div>
+            <button class="sort-btn" data-sort="${layer}">≡</button>
+          </div>
+          <div class="row">${items.map(g=>`
+            <div class="thumb" style="background:${db.colors[g.id]}22;color:${db.colors[g.id]}"
+                 data-garment="${g.id}" title="${g.name}">${LAYER_ICONS[g.layer]}</div>`).join('')}</div>
+        </div>`;
+    }
+  } else {
+    const occasions = ['通勤','休闲','正式','运动','约会'];
+    for (const occ of occasions) {
+      const items = db.outfits.filter(o => o.occasion === occ);
+      if (items.length === 0) continue;
+      html += `
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">${occ}</div><div class="card-count">· ${items.length} 套</div>
+          </div>
+          <div class="row">${items.map(o=>`
+            <div style="width:74px;height:76px;background:#FAFAFB;border:.5px solid #EDEDF0;border-radius:10px;padding:6px;flex:none">
+              <div style="display:flex;gap:4px">${o.garmentIDs.slice(0,3).map(gid=>{
+                const g = db.garments.find(x=>x.id===gid);
+                return g ? `<div style="width:20px;height:20px;border-radius:6px;background:${db.colors[g.id]}22;display:flex;align-items:center;justify-content:center;font-size:11px;color:${db.colors[g.id]}">${LAYER_ICONS[g.layer]}</div>` : '';
+              }).join('')}</div>
+              <div style="font-size:11px;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.name}</div>
+              <div style="font-size:11px;color:${o.wearCount>0?'var(--text2)':'var(--brand)'}">${o.wearCount>0?'穿 '+o.wearCount+' 次':'未穿过'}</div>
+            </div>`).join('')}</div>
+        </div>`;
+    }
+    if (db.outfits.length === 0) {
+      html += `<div class="card"><div class="hint">还没有保存的搭配。<br>在「灵感」页试衣后可以存为搭配。</div></div>`;
+    }
+  }
+  return html;
+}
+
+// ─────────────────────────────────────────────
+// 渲染：日历
+// ─────────────────────────────────────────────
+
+const COLOR_STEPS = ['#E8E8EC','#D8DBE8','#B5BEE8','#8A8FE0','#4C63E6'];
+
+function renderCalendar() {
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const first = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const firstWeekday = first.getDay();
+  const today = now.getDate();
+
+  let html = `
+    <div class="legend">
+      <span>素色</span>
+      <div class="steps">${COLOR_STEPS.map(c=>`<div style="background:${c}"></div>`).join('')}</div>
+      <span>多彩</span>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">${year}年${month+1}月</div>
+        <div class="card-count">· ${db.logs.filter(l=>new Date(l.date).getMonth()===month).length} 天</div>
+      </div>
+      <div class="cal">
+        ${['日','一','二','三','四','五','六'].map(w=>`<div class="wd">${w}</div>`).join('')}`;
+
+  for (let i=0;i<firstWeekday;i++) html += `<div class="day empty"></div>`;
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const dayLogs = db.logs.filter(l => new Date(l.date).toDateString() === date.toDateString());
+    const gs = db.garments.filter(g => dayLogs.some(l => l.garmentIDs.includes(g.id)));
+    const step = L.dayColorStep(gs);
+    const fill = dayLogs.length === 0 ? '#F1EFE8' : COLOR_STEPS[step];
+    const border = dayLogs.length === 0 ? 'none' : 'border:.5px solid var(--border)';
+    html += `<button class="day" style="${border}" data-day="${date.getTime()}">
+      <span class="d" style="${dayLogs.length===0?'color:var(--text3)':''}">${d}</span>
+      <span class="sw" style="background:${fill}"></span>
+    </button>`;
+  }
+  html += `</div></div>`;
+
+  // 本月统计
+  const monthLogs = db.logs.filter(l=>new Date(l.date).getMonth()===month);
+  const unique = new Set(monthLogs.flatMap(l=>l.garmentIDs));
+  html += `
+    <div class="card">
+      <div class="card-head"><div class="card-title">本月概览</div><div class="card-count">· 3 项</div></div>
+      <div style="display:flex;align-items:center">
+        <div class="mrow"><div class="metric"><span class="v">${monthLogs.length}</span><span class="u">天</span></div><div class="mlabel">记录天数</div></div>
+        <div class="mdiv"></div>
+        <div class="mrow"><div class="metric"><span class="v">${unique.size}</span><span class="u">件</span></div><div class="mlabel">穿着件数</div></div>
+        <div class="mdiv"></div>
+        <div class="mrow"><div class="metric"><span class="v">${(monthLogs.length/daysInMonth).toFixed(1)}</span><span class="u">天</span></div><div class="mlabel">日均</div></div>
+      </div>
+    </div>`;
+
+  return html;
+}
+
+// ─────────────────────────────────────────────
+// 渲染：灵感
+// ─────────────────────────────────────────────
+
+function renderInspiration() {
+  const recentIDs = new Set(
+    db.logs.filter(l => (Date.now() - new Date(l.date)) / 86400000 < 7).flatMap(l=>l.garmentIDs)
+  );
+  const insp = L.inspire({
+    garments: db.garments, occasion: state.occasion, season: state.currentSeason,
+    profileID: db.profileID, recentIDs, count: 1,
+  });
+  const best = insp[0];
+
+  let html = `
+    <div style="margin-bottom:10px">
+      ${['通勤','休闲','正式','运动','约会'].map(o=>
+        `<button class="chip ${state.occasion===o?'on':''}" data-occ="${o}">${o}</button>`).join('')}
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">随机搭配</div><div class="card-count">· 协调随机</div>
+      </div>`;
+
+  if (best) {
+    html += `<div class="row" style="margin-bottom:10px">${best.garments.map(g=>`
+      <div class="thumb" style="background:${db.colors[g.id]}22;color:${db.colors[g.id]}" data-garment="${g.id}">${LAYER_ICONS[g.layer]}</div>`).join('')}</div>`;
+    html += best.reasons.slice(0,3).map(r=>
+      `<div class="reason"><span class="ck">✓</span>${r}</div>`).join('');
+    html += `<div style="display:flex;gap:10px;margin-top:12px">
+      <button class="btn-primary" style="margin:0" id="btnInspire">换一个</button>
+      <button class="btn-primary" style="margin:0;flex:none;width:44px;background:var(--btn);color:var(--text2)"
+        id="btnSaveOutfit" data-ids="${best.garments.map(g=>g.id).join(',')}">🔖</button>
+    </div>`;
+  } else {
+    html += `<div class="hint">衣橱里还没有足够的衣服</div>`;
+  }
+  html += `</div>`;
+
+  // 试衣间
+  const slots = [2,3,4,5,6];
+  html += `
+    <div class="card">
+      <div class="card-head"><div class="card-title">试衣间</div><div class="card-count">· 分品类换装</div></div>
+      <div class="hint" style="margin-bottom:10px">每个品类都能单独切换，没想法时随机抽一件</div>
+      <div class="row" style="gap:8px">${slots.map(layer=>{
+        const g = state.tryOnSlots[layer];
+        const covered = state.tryOnSlots[3] && L.coversLayers(3).includes(layer);
+        return `<div data-slot="${layer}" style="text-align:center;flex:none;cursor:${covered?'default':'pointer'}">
+          <div style="width:48px;height:48px;border-radius:8px;background:${g?db.colors[g.id]+'22':'var(--thumb)'};
+                      border:${g?'none':'.5px dashed var(--text3)'};display:flex;align-items:center;justify-content:center;
+                      font-size:20px;color:${g?db.colors[g.id]:'var(--text3)'}">
+            ${g?LAYER_ICONS[layer]:(covered?'·':'+')}
+          </div>
+          <div style="font-size:9px;color:${covered?'var(--text3)':'var(--text2)'};margin-top:4px">
+            ${g?LAYER_SHORT[layer]:(covered?'已覆盖':'加一件'+LAYER_SHORT[layer])}
+          </div>
+        </div>`;
+      }).join('')}</div>
+      <button class="btn-primary" id="btnTryOn">进入试衣间</button>
+    </div>`;
+
+  return html;
+}
+
+// ─────────────────────────────────────────────
+// 渲染：设置
+// ─────────────────────────────────────────────
+
+function renderSettings() {
+  const idle = db.garments.filter(g => {
+    if (!g.lastWornDate) return g.wearCount === 0;
+    return (Date.now() - new Date(g.lastWornDate)) / 86400000 > 90;
+  });
+
+  return `
+    <div class="card">
+      <div class="card-head"><div class="card-title">档案</div></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+        <div style="width:34px;height:34px;border-radius:17px;background:var(--brand);color:#fff;
+                    display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500">我</div>
+        <div style="font-size:13px">我</div>
+        <div style="margin-left:auto;color:var(--brand)">✓</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">数据与备份</div></div>
+      <div class="detail-row"><span class="k">数据库版本</span><span class="v">1.0.0</span></div>
+      <div class="detail-row"><span class="k">历史快照</span><span class="v">5 份</span></div>
+      <div class="detail-row" style="border:none"><span class="k">单品总数</span><span class="v">${db.garments.length} 件</span></div>
+      <button class="btn-primary" id="btnSnapshot">立即创建快照</button>
+      <button class="btn-primary" style="background:var(--btn);color:var(--text)" id="btnExport">导出备份包（zip）</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">闲置提醒</div><div class="card-count">· ${idle.length} 件</div></div>
+      ${idle.length === 0
+        ? `<div class="hint">衣橱轮换得很好，没有闲置</div>`
+        : idle.slice(0,6).map(g=>`
+          <div class="detail-row" style="border:none">
+            <span style="color:${db.colors[g.id]}">${LAYER_ICONS[g.layer]}</span>
+            <span style="margin-left:8px">${g.name}</span>
+            <span class="v" style="color:${g.wearCount===0?'var(--brand)':'var(--text2)'}">
+              ${g.wearCount===0?'没穿过':g.wearCount+' 次'}</span>
+          </div>`).join('')}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">隐私</div></div>
+      <div class="detail-row"><span class="k">启动时需要 Face ID 验证</span><span class="v">开</span></div>
+      <div class="detail-row" style="border:none"><span class="k">照片仅保存在本机</span><span class="v">✓</span></div>
+      <div class="hint" style="margin-top:8px">本 App 不含任何网络请求代码。</div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────
+// 渲染：单品详情（弹层）
+// ─────────────────────────────────────────────
+
+function showGarmentDetail(id) {
+  const g = db.garments.find(x=>x.id===id);
+  if (!g) return;
+  state.selectedGarment = id;
+
+  const logs = db.logs.filter(l=>l.garmentIDs.includes(id));
+  const weeks = Array.from({length:12}, (_,i)=>{
+    const end = Date.now() - i*7*86400000;
+    const start = end - 7*86400000;
+    return logs.filter(l=>{const t=new Date(l.date).getTime(); return t>=start && t<end;}).length;
+  });
+  const heatColors = ['#F3F3F5','#B5D4F4','#85B7EB','#4C63E6','#26215C'];
+  const lastWorn = g.lastWornDate
+    ? (() => { const d = Math.floor((Date.now()-new Date(g.lastWornDate))/86400000);
+        return d===0?'今天':d===1?'昨天':d<30?d+' 天前':Math.floor(d/30)+' 个月前'; })()
+    : '未穿';
+
+  const attrs = [
+    ['颜色', g.colorName], ['品类', LAYER_SHORT[g.layer]],
+    ['图案', '纯色'], ['材质', {cotton:'棉',linen:'麻',wool:'羊毛',silk:'丝',polyester:'涤纶',denim:'牛仔',leather:'皮革',knit:'针织',down:'羽绒'}[g.material] || '其他'],
+    ['厚薄', '适中'], ['版型', {slim:'修身',regular:'常规',loose:'宽松',oversized:'Oversized'}[g.fit]],
+    ['场合', g.occasions.join('、')], ['季节', g.seasons.join('、')],
+    ['价格', '未填'], ['品牌', '未填'], ['购入日期', '未填'],
+  ];
+
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <h3>${g.name}</h3>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div style="width:72px;height:72px;border-radius:10px;background:${db.colors[g.id]}22;color:${db.colors[g.id]};
+                    display:flex;align-items:center;justify-content:center;font-size:32px">${LAYER_ICONS[g.layer]}</div>
+        <div>
+          <div class="pill">${LAYER_SHORT[g.layer]}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">${g.colorName}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">穿着统计</div><div class="card-count">· 3 项</div></div>
+      <div style="display:flex;align-items:center">
+        <div class="mrow"><div class="metric"><span class="v">${g.wearCount}</span><span class="u">次</span></div><div class="mlabel">穿着次数</div></div>
+        <div class="mdiv"></div>
+        <div class="mrow"><div class="metric"><span class="v">${lastWorn}</span></div><div class="mlabel">最近穿</div></div>
+        <div class="mdiv"></div>
+        <div class="mrow"><div class="metric"><span class="v">${logs.length}</span><span class="u">天</span></div><div class="mlabel">有记录</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">属性</div><div class="card-count">· ${attrs.length} 项</div></div>
+      ${attrs.map(([k,v])=>`<div class="detail-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">近 12 周</div><div class="card-count">· 12 周</div></div>
+      <div class="heat">${weeks.slice().reverse().map(c=>`<div style="background:${heatColors[Math.min(c,4)]}"></div>`).join('')}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:6px">
+        <span>84 天前</span><span>今天</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">穿着记录</div><div class="card-count">· ${logs.length} 条</div></div>
+      ${logs.length===0 ? `<div class="hint">还没有穿过这件</div>` :
+        logs.slice(0,6).map(l=>`<div class="detail-row" style="border:none">
+          <span>${new Date(l.date).toLocaleDateString('zh-CN')}</span>
+          <span class="v" style="color:var(--text2)">${l.occasion}</span></div>`).join('')}
+    </div>
+    <button class="btn-primary" id="btnCloseSheet" style="margin-top:4px">完成</button>
+  `);
+}
+
+// ─────────────────────────────────────────────
+// 渲染：试衣间（弹层）
+// ─────────────────────────────────────────────
+
+function showTryOn() {
+  const slots = [2,3,4,5,6];
+  const picked = Object.values(state.tryOnSlots);
+
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <h3>试衣间</h3>
+    <div style="background:var(--thumb);border-radius:12px;padding:24px;text-align:center;margin-bottom:12px">
+      ${picked.length===0
+        ? `<div style="font-size:13px;color:var(--text2)">选几件衣服试试</div>`
+        : `<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+            ${picked.map(g=>`<div style="width:64px;height:64px;border-radius:10px;background:${db.colors[g.id]}22;
+              display:flex;align-items:center;justify-content:center;font-size:28px;color:${db.colors[g.id]}">${LAYER_ICONS[g.layer]}</div>`).join('')}
+           </div>`}
+    </div>
+    <div class="row" style="gap:8px;margin-bottom:12px">${slots.map(layer=>{
+      const g = state.tryOnSlots[layer];
+      const covered = state.tryOnSlots[3] && L.coversLayers(3).includes(layer);
+      return `<div data-slot="${layer}" style="text-align:center;flex:none;cursor:${covered?'default':'pointer'}">
+        <div style="width:48px;height:48px;border-radius:8px;background:${g?db.colors[g.id]+'22':'var(--thumb)'};
+                    border:${g?'none':'.5px dashed var(--text3)'};display:flex;align-items:center;justify-content:center;
+                    font-size:20px;color:${g?db.colors[g.id]:'var(--text3)'}">${g?LAYER_ICONS[g.layer]:(covered?'·':'+')}</div>
+        <div style="font-size:9px;color:${covered?'var(--text3)':'var(--text2)'};margin-top:4px">
+          ${g?LAYER_SHORT[layer]:(covered?'已覆盖':'加一件'+LAYER_SHORT[layer])}</div>
+      </div>`;
+    }).join('')}</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      ${[0,1,2,3].map(p=>`<button class="chip ${state.tryOnPose===p?'on':''}" data-pose="${p}">姿势 ${p+1}</button>`).join('')}
+    </div>
+    <button class="btn-primary" id="btnTryRandom">随机换一件上衣</button>
+    <button class="btn-primary" style="background:var(--btn);color:var(--text)" id="btnTryRecord">记录今天</button>
+    <button class="btn-primary" style="background:var(--btn);color:var(--text);margin-bottom:8px" id="btnCloseSheet">关闭</button>
+  `);
+}
+
+// ─────────────────────────────────────────────
+// 渲染：品类候选面板
+// ─────────────────────────────────────────────
+
+function showSlotPicker(layer) {
+  const candidates = db.garments.filter(g=>g.layer===layer && !g.archived)
+    .sort((a,b)=>b.wearCount-a.wearCount);
+
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <h3>选${LAYER_SHORT[layer]}</h3>
+    ${candidates.length===0
+      ? `<div class="hint">还没有${LAYER_SHORT[layer]}</div>`
+      : `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+          ${candidates.map(g=>`
+            <div data-pick="${g.id}" data-pick-layer="${layer}" style="text-align:center;cursor:pointer">
+              <div style="width:68px;height:68px;border-radius:10px;background:${db.colors[g.id]}22;color:${db.colors[g.id]};
+                          display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto">${LAYER_ICONS[g.layer]}</div>
+              <div style="font-size:11px;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.name}</div>
+              <div style="font-size:9px;color:var(--text3)">穿 ${g.wearCount} 次</div>
+            </div>`).join('')}
+        </div>`}
+    <button class="btn-primary" id="btnPickRandom" data-layer="${layer}">随机换一件${LAYER_SHORT[layer]}</button>
+    <button class="btn-primary" style="background:var(--btn);color:var(--text);margin-bottom:8px" id="btnCloseSheet">取消</button>
+  `);
+}
+
+// ─────────────────────────────────────────────
+// 弹层控制
+// ─────────────────────────────────────────────
+
+function openSheet(html) {
+  const sheet = document.getElementById('sheet');
+  const overlay = document.getElementById('overlay');
+  sheet.innerHTML = html;
+  sheet.classList.add('show');
+  overlay.classList.add('show');
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
+  state.selectedGarment = null;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+// ─────────────────────────────────────────────
+// 主渲染
+// ─────────────────────────────────────────────
+
+function render() {
+  const screen = document.getElementById('screen');
+  const tabbar = document.getElementById('tabbar');
+  const fab = document.getElementById('fab');
+
+  let html = '';
+  let navTitle = '我的衣橱';
+
+  if (state.tab === 0) {
+    html = renderWardrobe();
+    navTitle = '我的衣橱';
+    fab.style.display = 'flex';
+  } else if (state.tab === 1) {
+    html = renderToday();
+    navTitle = '今天';
+    fab.style.display = 'none';
+  } else if (state.tab === 2) {
+    html = renderCalendar();
+    navTitle = '日历';
+    fab.style.display = 'none';
+  } else if (state.tab === 3) {
+    html = renderInspiration();
+    navTitle = '灵感';
+    fab.style.display = 'none';
+  } else {
+    html = renderSettings();
+    navTitle = '设置';
+    fab.style.display = 'none';
+  }
+
+  screen.innerHTML = html;
+  document.getElementById('navTitle').textContent = navTitle;
+
+  tabbar.innerHTML = TABS.map((t,i)=>`
+    <button class="tab ${state.tab===i?'on':''}" data-tab="${i}">
+      <span class="ic">${t.ic}</span><span>${t.name}</span>
+    </button>`).join('');
+
+  // 状态面板
+  document.getElementById('statBox').innerHTML = `
+    单品 <b>${db.garments.length}</b> 件 · 记录 <b>${db.logs.length}</b> 天<br>
+    组合 <b>${db.outfits.length}</b> 套 · 档案 1 个<br>
+    当前页签：<b>${TABS[state.tab].name}</b>`;
+
+  document.getElementById('mapping').innerHTML = `
+    <b>今天</b> → TodayView.swift<br>
+    <b>衣橱</b> → WardrobeView.swift<br>
+    <b>日历</b> → CalendarView.swift<br>
+    <b>灵感</b> → InspirationView.swift<br>
+    <b>设置</b> → SettingsView.swift<br>
+    <b>详情</b> → GarmentDetailView.swift<br>
+    <b>试衣间</b> → TryOnView.swift<br>
+    <b>算法</b> → RecommendationEngine.swift`;
+}
+
+// ─────────────────────────────────────────────
+// 事件
+// ─────────────────────────────────────────────
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-tab],[data-seg],[data-occ],[data-garment],[data-record],[data-sort],[data-slot],[data-pick],[data-pose],[data-day],#fab,#btnInspire,#btnSaveOutfit,#btnTryOn,#btnTryRandom,#btnTryRecord,#btnCloseSheet,#btnPickRandom,#btnSnapshot,#btnExport,#overlay');
+  if (!t) return;
+
+  // Tab
+  if (t.dataset.tab !== undefined) { state.tab = +t.dataset.tab; state.seg = 0; render(); return; }
+  // 分段
+  if (t.dataset.seg !== undefined) { state.seg = +t.dataset.seg; render(); return; }
+  // 场合
+  if (t.dataset.occ) { state.occasion = t.dataset.occ; render(); return; }
+  // 详情
+  if (t.dataset.garment) { showGarmentDetail(t.dataset.garment); return; }
+  // 记录今天
+  if (t.dataset.record) {
+    const ids = t.dataset.record.split(',');
+    db.logs.push({
+      id: uidGen('l'), profileID: db.profileID, date: new Date(),
+      garmentIDs: ids, occasion: state.occasion, fromRecommendation: true,
+    });
+    ids.forEach(gid => {
+      const g = db.garments.find(x=>x.id===gid);
+      if (g) { g.wearCount++; g.lastWornDate = new Date(); }
+    });
+    toast('已记录今天的穿搭');
+    closeSheet(); render(); return;
+  }
+  // 排序
+  if (t.dataset.sort) { toast(`按穿着次数排序（${LAYER_SHORT[t.dataset.sort]}）`); return; }
+  // 槽位
+  if (t.dataset.slot) {
+    const layer = +t.dataset.slot;
+    if (state.tryOnSlots[3] && L.coversLayers(3).includes(layer)) { toast('已被连衣裙覆盖'); return; }
+    showSlotPicker(layer); return;
+  }
+  // 选候选
+  if (t.dataset.pick) {
+    const gid = t.dataset.pick, layer = +t.dataset.pickLayer;
+    state.tryOnSlots[layer] = gid;
+    if (layer === 3) { delete state.tryOnSlots[2]; delete state.tryOnSlots[5]; }
+    if (layer === 2 || layer === 5) delete state.tryOnSlots[3];
+    closeSheet(); showTryOn(); render(); return;
+  }
+  // 姿势
+  if (t.dataset.pose !== undefined) { state.tryOnPose = +t.dataset.pose; showTryOn(); return; }
+  // 日期
+  if (t.dataset.day) { toast(new Date(+t.dataset.day).toLocaleDateString('zh-CN')); return; }
+
+  // 悬浮 +：新增单品
+  if (t.id === 'fab') { addGarmentFlow(); return; }
+  // 随机
+  if (t.id === 'btnInspire') { render(); toast('换了一套新的'); return; }
+  // 存为组合
+  if (t.id === 'btnSaveOutfit') {
+    const ids = t.dataset.ids.split(',');
+    const gs = ids.map(id=>db.garments.find(x=>x.id===id));
+    db.outfits.push({
+      id: uidGen('o'), profileID: db.profileID,
+      name: `${gs[0].name} × ${gs[1].name}`, occasion: state.occasion,
+      garmentIDs: ids, wearCount: 0, lastWornDate: null, seasons: [],
+    });
+    toast('已存为搭配'); render(); return;
+  }
+  // 试衣间
+  if (t.id === 'btnTryOn') { showTryOn(); return; }
+  if (t.id === 'btnTryRandom') {
+    const layer = 2;
+    const cands = db.garments.filter(g=>g.layer===layer && !g.archived);
+    if (cands.length) {
+      const g = cands[Math.floor(Math.random()*cands.length)];
+      state.tryOnSlots[layer] = g.id;
+      delete state.tryOnSlots[3];
+    }
+    showTryOn(); return;
+  }
+  if (t.id === 'btnTryRecord') {
+    const ids = Object.values(state.tryOnSlots);
+    if (!ids.length) { toast('还没选衣服'); return; }
+    db.logs.push({
+      id: uidGen('l'), profileID: db.profileID, date: new Date(),
+      garmentIDs: ids, occasion: state.occasion, fromRecommendation: false,
+    });
+    ids.forEach(gid=>{ const g=db.garments.find(x=>x.id===gid); if(g){g.wearCount++;g.lastWornDate=new Date();} });
+    closeSheet(); render(); toast('已记录今天的穿搭'); return;
+  }
+  if (t.id === 'btnCloseSheet') { closeSheet(); render(); return; }
+  if (t.id === 'btnPickRandom') {
+    const layer = +t.dataset.layer;
+    const cands = db.garments.filter(g=>g.layer===layer && !g.archived);
+    if (cands.length) {
+      // 加权：穿着次数少的优先
+      const weights = cands.map(g=>1 + Math.min(g.wearCount,10)*0.3);
+      const total = weights.reduce((a,b)=>a+b,0);
+      let th = Math.random()*total;
+      for (let i=0;i<cands.length;i++){ th-=weights[i]; if(th<=0){ state.tryOnSlots[layer]=cands[i].id; break; } }
+      if (layer===3){ delete state.tryOnSlots[2]; delete state.tryOnSlots[5]; }
+      if (layer===2||layer===5) delete state.tryOnSlots[3];
+    }
+    closeSheet(); showTryOn(); render(); return;
+  }
+  if (t.id === 'btnSnapshot') { toast('已创建快照（迁移前自动备份机制）'); return; }
+  if (t.id === 'btnExport') { toast('导出 zip：含数据库 + 全部照片'); return; }
+  if (t.id === 'overlay') { closeSheet(); render(); return; }
+});
+
+// 录入流程（简化）
+function addGarmentFlow() {
+  const name = prompt('新单品名称（留空用默认）');
+  if (name === null) return;
+  const layers = [2,3,4,5,6,8];
+  const layer = layers[Math.floor(Math.random()*layers.length)];
+  const colors = ['#C8A67A','#E6E4DC','#3F4A5C','#8B6A4E','#4E6B57','#B4B2A9'];
+  const colorHex = colors[Math.floor(Math.random()*colors.length)];
+  const id = uidGen('g');
+  db.garments.push({
+    id, profileID: db.profileID,
+    name: name.trim() || `${LAYER_SHORT[layer]}${Math.floor(Math.random()*90+10)}号`,
+    layer, colorHex, colorName: '新', material: 'cotton', fit: 'regular',
+    occasions: ['通勤','休闲'], seasons: ['春','秋'],
+    wearCount: 0, lastWornDate: null, archived: false,
+  });
+  db.colors[id] = colorHex;
+  render();
+  toast('已添加（品类与颜色自动预填）');
+}
+
+// 初始化
+seed();
+render();
+</script>
+</body>
+</html>

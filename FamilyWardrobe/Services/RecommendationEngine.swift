@@ -54,13 +54,36 @@ struct RecommendationEngine {
     }
 
     /// 评分权重。调这些就能改变推荐风格。
+    ///
+    /// ⚠️ 基础权重之和必须**恰好等于 100**。
+    /// 各项加分（材质对比、完整度等）会把原始分推高，所以最终要归一化。
+    /// 如果基础权重之和也超 100，归一化的分母就得跟着变，很容易出错。
     struct Weights {
-        var colorHarmony: Double = 30
+        var colorHarmony: Double = 25
         var proportion: Double = 20
         var materialContrast: Double = 15
         var completeness: Double = 20
         var freshness: Double = 10
-        var preference: Double = 15
+        var preference: Double = 10
+
+        var baseTotal: Double {
+            colorHarmony + proportion + materialContrast + completeness + freshness + preference
+        }
+    }
+
+    /// 各项加分的理论最大值之和。
+    ///
+    /// ⚠️ 为什么需要它：原始分 = 基础分 + 加分 - 扣分，会超过 100。
+    /// 如果直接 `min(score, 100)` 封顶，**所有高分组合都会被削平成 100** ——
+    /// 结果是「配齐三件」和「缺一件」得分相同，推荐失去区分度，
+    /// 看起来每次都一样。所以必须归一化到 0–100。
+    static let maxBonusTotal: Double = 39
+
+    /// 归一化：把原始分映射到 0–100
+    static func normalized(rawScore: Double, weights: Weights) -> Double {
+        let maxRaw = weights.baseTotal + maxBonusTotal
+        guard maxRaw > 0 else { return 0 }
+        return max(0, min(100, rawScore / maxRaw * 100))
     }
 
     var weights = Weights()
@@ -126,21 +149,54 @@ struct RecommendationEngine {
 
         var candidates: [[Garment]] = []
 
-        // 路径一：上衣 + 下装（可搭外套）
+        // 路径一：上衣 + 下装，可选加外套 / 鞋
+        //
+        // ⚠️ 鞋必须参与组合。
+        // 曾经这里漏了 shoes，导致引擎**永远生成不出「上装+下装+鞋」三件套**，
+        // 而「通勤必须配齐三件」正是完整度规则的核心 ——
+        // 结果是完整度永远在扣分，规则形同虚设。
         for top in tops {
             for bottom in bottoms {
+                // 两件套
                 candidates.append([top, bottom])
+
+                // 上衣 + 下装 + 鞋
+                for shoe in shoes.prefix(4) {
+                    candidates.append([top, bottom, shoe])
+                }
+
+                // 上衣 + 外套 + 下装
                 for outer in outers.prefix(4) {
                     candidates.append([top, outer, bottom])
+                }
+
+                // 上衣 + 外套 + 下装 + 鞋（最完整的通勤搭配）
+                for outer in outers.prefix(4) {
+                    for shoe in shoes.prefix(2) {
+                        candidates.append([top, outer, bottom, shoe])
+                    }
                 }
             }
         }
 
-        // 路径二：连衣裙（可搭外套）
+        // 路径二：连衣裙（可搭外套 / 鞋）
         for dress in dresses {
             candidates.append([dress])
+
             for outer in outers.prefix(4) {
                 candidates.append([dress, outer])
+            }
+
+            // 连衣裙 + 鞋
+            for shoe in shoes.prefix(4) {
+                candidates.append([dress, shoe])
+            }
+
+            // 连衣裙 + 外套 + 鞋
+            for outer in outers.prefix(4) {
+                for shoe in shoes.prefix(2) {
+                    candidates.append([dress, outer, shoe])
+                }
             }
         }
 
@@ -153,7 +209,11 @@ struct RecommendationEngine {
 
         scored.sort { $0.score > $1.score }
 
-        // 去重：同一套里不要出现两件同层的单品
+        // 去重：同一层不出现两件单品。
+        //
+        // ⚠️ 判断依据是「层集合相同」**且**「有单品重叠」。
+        // 只看层集合会把「上衣+下装」和「上衣+外套+下装+鞋」误判为重复 ——
+        // 而后者才是完整度更高的搭配，不能被前面的两件套挤掉。
         var deduped: [Recommendation] = []
         for candidate in scored {
             let layerSet = Set(candidate.garments.map(\.layer))
@@ -300,7 +360,7 @@ struct RecommendationEngine {
 
         return Recommendation(
             garments: combination,
-            score: min(score, 100),
+            score: Self.normalized(rawScore: score, weights: weights),
             reasons: reasons,
             occasion: occasion
         )

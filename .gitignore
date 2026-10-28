@@ -21,3 +21,9 @@ __pycache__/
 
 # WorkBuddy 工作区元数据（不随代码分发）
 .workbuddy/
+
+# 本机验证工具的依赖与产物
+Tools/LogicTest/node_modules/
+Tools/LogicTest/package-lock.json
+Tools/LogicTest/shot-*.png
+generated-images/
