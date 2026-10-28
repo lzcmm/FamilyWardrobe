@@ -17,6 +17,7 @@ struct WardrobeView: View {
     @Environment(\.modelContext) private var context
     @Query private var garments: [Garment]
     @Query private var outfits: [Outfit]
+    @Query private var profiles: [Profile]
 
     @State private var segment = 0
     @State private var searchText = ""
@@ -24,11 +25,17 @@ struct WardrobeView: View {
     @State private var showGridMode = false
     @State private var selectedGarment: Garment?
     @State private var sortTarget: LayerSortTarget?
+    @State private var showEntry = false
+    @State private var entryPresetLayer: WearLayer?
+    @State private var showProfilePicker = false
 
     private let profileID: UUID
+    /// 切换档案的回调（由 RootView 持有全局状态）
+    var onSwitchProfile: (UUID) -> Void = { _ in }
 
-    init(profileID: UUID) {
+    init(profileID: UUID, onSwitchProfile: @escaping (UUID) -> Void = { _ in }) {
         self.profileID = profileID
+        self.onSwitchProfile = onSwitchProfile
     }
 
     var body: some View {
@@ -39,6 +46,11 @@ struct WardrobeView: View {
                         SegmentedBar(options: ["单品", "组合"], selection: $segment)
                             .padding(.horizontal, Theme.Metrics.screenMargin)
                             .padding(.top, 4)
+
+                        if showSearch {
+                            searchBar
+                                .padding(.horizontal, Theme.Metrics.screenMargin)
+                        }
 
                         if segment == 0 {
                             singleItemSections
@@ -51,7 +63,8 @@ struct WardrobeView: View {
                 .background(Theme.Palette.pageBackground)
 
                 FabButton {
-                    // TODO: 接 P9 单件录入
+                    entryPresetLayer = nil
+                    showEntry = true
                 }
                 .padding(.trailing, Theme.Metrics.screenMargin + 4)
                 .padding(.bottom, 12)
@@ -61,11 +74,22 @@ struct WardrobeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
-                        Button("切换档案") { }
-                        Button("档案详情") { }
+                        ForEach(availableProfiles) { profile in
+                            Button {
+                                onSwitchProfile(profile.id)
+                            } label: {
+                                Label(profile.name, systemImage: profile.id == profileID ? "checkmark" : "person")
+                            }
+                        }
+                        Divider()
+                        Button {
+                            showProfilePicker = true
+                        } label: {
+                            Label("切换档案", systemImage: "person.2")
+                        }
                     } label: {
                         HStack(spacing: 4) {
-                            Text("我的衣橱")
+                            Text(currentProfileName)
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 10, weight: .semibold))
                         }
@@ -98,7 +122,18 @@ struct WardrobeView: View {
                 }
             }
             .sheet(item: $selectedGarment) { garment in
-                GarmentDetailView(garment: garment)
+                NavigationStack {
+                    GarmentDetailView(garment: garment)
+                }
+            }
+            .sheet(isPresented: $showEntry) {
+                GarmentEntryView(profileID: profileID, presetLayer: entryPresetLayer)
+            }
+            .sheet(isPresented: $showProfilePicker) {
+                ProfilePickerView { newProfileID in
+                    onSwitchProfile(newProfileID)
+                    showProfilePicker = false
+                }
             }
             .confirmationDialog(
                 "排序方式",
@@ -119,6 +154,37 @@ struct WardrobeView: View {
         }
     }
 
+    // MARK: 搜索
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.Palette.textSecondary)
+            TextField("名称、品牌、颜色", text: $searchText)
+                .font(Theme.Typo.body)
+                .textInputAutocapitalization(.never)
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.Palette.textTertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 38)
+        .background(Theme.Palette.card)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Theme.Palette.cardBorder, lineWidth: 0.5)
+        )
+    }
+
     // MARK: 单品视图
 
     @ViewBuilder
@@ -132,22 +198,43 @@ struct WardrobeView: View {
                     count: items.count,
                     onSort: { sortTarget = LayerSortTarget(layer: layer) }
                 ) {
-                    ThumbnailRow(items: items) { garment in
-                        Button {
-                            selectedGarment = garment
-                        } label: {
-                            ThumbnailTile(
-                                image: AssetStore.shared.thumbnail(for: garment),
-                                placeholderSymbol: layer.placeholderSymbol
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button("查看详情") { selectedGarment = garment }
-                            Button("删除", role: .destructive) { }
+                    if showGridMode {
+                        gridLayout(items: items, layer: layer)
+                    } else {
+                        ThumbnailRow(items: items) { garment in
+                            Button {
+                                selectedGarment = garment
+                            } label: {
+                                ThumbnailTile(
+                                    image: AssetStore.shared.thumbnail(for: garment),
+                                    placeholderSymbol: layer.placeholderSymbol
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("查看详情") { selectedGarment = garment }
+                                Button("删除", role: .destructive) { }
+                            }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /// 网格布局 —— 快速扫描「我有多少件衣服、颜色分布」
+    private func gridLayout(items: [Garment], layer: WearLayer) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: Theme.Metrics.thumbnailSpacing)], spacing: Theme.Metrics.thumbnailSpacing) {
+            ForEach(items) { garment in
+                Button {
+                    selectedGarment = garment
+                } label: {
+                    ThumbnailTile(
+                        image: AssetStore.shared.thumbnail(for: garment),
+                        placeholderSymbol: layer.placeholderSymbol
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -169,10 +256,10 @@ struct WardrobeView: View {
                             name: outfit.name,
                             wearCount: outfit.wearCount,
                             memberImages: outfit.garmentIDs.compactMap { id in
-                                garments.first { $0.id == id }.flatMap { AssetStore.shared.thumbnail(for: $0) }
+                                garmentIndex[id].flatMap { AssetStore.shared.thumbnail(for: $0) }
                             },
                             memberSymbols: outfit.garmentIDs.map { id in
-                                garments.first { $0.id == id }?.layer.placeholderSymbol ?? "tshirt.fill"
+                                garmentIndex[id]?.layer.placeholderSymbol ?? "tshirt.fill"
                             }
                         )
                     }
@@ -181,7 +268,22 @@ struct WardrobeView: View {
         }
     }
 
+    /// 单品 ID → 单品 的索引。
+    /// 组合卡片要按 ID 反查成员，如果每个成员都用 `garments.first { }` 线性扫，
+    /// 一屏 9 张卡 × 3 成员 = 27 次全表扫描。预建字典后是 O(1)。
+    private var garmentIndex: [UUID: Garment] {
+        Dictionary(garments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     // MARK: 数据
+
+    private var availableProfiles: [Profile] {
+        profiles
+    }
+
+    private var currentProfileName: String {
+        profiles.first { $0.id == profileID }?.name ?? "我的衣橱"
+    }
 
     private var filteredGarments: [Garment] {
         garments.filter { garment in
@@ -211,39 +313,4 @@ struct WardrobeView: View {
 struct LayerSortTarget: Identifiable {
     let id = UUID()
     let layer: WearLayer
-}
-
-// MARK: - 单品详情占位
-
-struct GarmentDetailView: View {
-    let garment: Garment
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                ThumbnailTile(
-                    image: AssetStore.shared.thumbnail(for: garment),
-                    placeholderSymbol: garment.layer.placeholderSymbol
-                )
-                .frame(width: 160, height: 160)
-
-                Text(garment.name)
-                    .font(.system(size: 15, weight: .medium))
-
-                Text("穿 \(garment.wearCount) 次")
-                    .font(Theme.Typo.caption)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.Palette.pageBackground)
-            .navigationTitle("单品详情")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") { dismiss() }
-                }
-            }
-        }
-    }
 }
