@@ -25,6 +25,12 @@ struct InspirationView: View {
 
     private var engine = RecommendationEngine()
 
+    // 有 private stored property 时，自动生成的 memberwise init 会变成 private，
+    // 导致 RootView 跨文件构造失败。显式声明一个 internal init。
+    init(profileID: UUID?) {
+        self.profileID = profileID
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
