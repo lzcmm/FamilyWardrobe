@@ -5,11 +5,11 @@ options:
     iOS: "17.0"
   createIntermediateGroups: true
   generateEmptyDirectories: false
-  xcodeVersion: "27"
 
 settings:
   base:
-    SWIFT_VERSION: "5.10"
+    # SWIFT_VERSION 只接受 4.0/4.2/5.0/6.0，写 "5.10" 会被 Xcode 判为不支持
+    SWIFT_VERSION: "5.0"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     SWIFT_STRICT_CONCURRENCY: minimal

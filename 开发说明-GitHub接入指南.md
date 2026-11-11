@@ -5,15 +5,25 @@
 
 ---
 
-## 零、先说结论：你可能要做的只有 3 件事
+## 零、先说结论：你只需要做 1 件事
+
+> 状态更新：GitHub 账号已注册并在浏览器登录（2026-11-11）。
+> 方向已定：**继续做 iOS 原生 App**，不走小程序。
 
 | # | 事项 | 耗时 |
 |---|---|---|
-| 1 | 确认/注册 GitHub 账号 | 5 分钟 |
-| 2 | 建一个仓库（**Public**） | 1 分钟 |
-| 3 | 把仓库地址 + 访问令牌发我 | 1 分钟 |
+| 1 | 生成一个访问令牌，把 `ghp_...` 发我 | 约 30 秒 |
 
-剩下的（推送代码、配置 CI、编译、签名安装）我来做。
+**不用手动建仓库、不用填仓库地址、不用管分支名。** 脚本会自动读取你的用户名、
+创建 Public 仓库、把 `master` 改成 `main`、推送全部提交。
+
+剩下（推送、CI 编译、签名安装）我来做。
+
+### 为什么不能免令牌
+
+我试过 GitHub 的设备授权流程（浏览器点一下授权即可），但本机网络下
+`github.com/login/device/code` 返回 `Not Found`（换 client_id 也是），走不通。
+个人访问令牌是唯一可用通道，且可以推完立刻吊销。
 
 ---
 
@@ -27,100 +37,83 @@ Codemagic 和 GitHub Actions 都是**云端构建机** —— 它们需要一台
 
 ---
 
-## 二、确认你是否已有 GitHub 账号
+## 二、仓库不用你建
 
-本机的构建配置里记录着两个仓库：
+`Tools/setup-github.sh` 会用令牌调 GitHub API 自动完成：
 
-```
-https://github.com/cq-tyl/roseluna
-https://github.com/cq-tyl/Fish-tank-water-quality-testing
-```
+1. `GET /user` 取你的用户名（**不用告诉我账号叫什么**）
+2. `POST /user/repos` 创建 `FamilyWardrobe`（Public，不初始化任何文件）
+3. 若同名仓库已存在（HTTP 422）则直接复用
 
-我匿名访问它们都返回 **404** —— 说明它们是**私有仓库**，账号存在且在用。
+> 之前本机配置里出现过 `cq-tyl` 这个账号名，但那是历史记录。
+> 新账号叫什么完全不影响，脚本自己读。
 
-**所以：先去 <https://github.com/login> 试一下能不能登录 `cq-tyl`。**
+### 为什么必须是 Public
 
-| 结果 | 怎么做 |
-|---|---|
-| 能登录 | 跳到第三步，直接建新仓库 |
-| 不能登录 / 没这个账号 | 走下面的注册流程 |
+GitHub Actions 的 **macOS runner 在公开仓库上免费无限**；
+私有仓库按 **10 倍倍率**扣免费额度（免费版约每月 200 分钟 macOS）。
 
-### 注册流程（如果没有）
-
-1. 打开 <https://github.com/signup>
-2. 用邮箱注册，完成邮箱验证
-3. 个人账号完全免费，公开仓库无限
-
----
-
-## 三、建仓库
-
-登录后点右上角 **＋** → **New repository**：
-
-| 项 | 填什么 |
-|---|---|
-| Owner | 你的账号 |
-| Repository name | `FamilyWardrobe` |
-| Description | 家庭衣橱（可留空） |
-| Visibility | **Public** ← 见下方说明 |
-| ⚠️ Initialize this repository | **全部不勾** |
-
-> **不要勾 README / .gitignore / License。**
-> 本地已经有 git 仓库和 `.gitignore` 了，初始化会导致推送冲突。
-
-### 为什么选 Public
-
-GitHub Actions 的 **macOS runner 在公开仓库上完全免费且无限**；
-私有仓库则按 **10 倍倍率**扣免费额度（免费版约等于每月 200 分钟 macOS 分钟）。
-
-本项目代码不包含任何密钥：
-- 签名证书在 Codemagic 控制台，不进仓库
-- ASC API key 在 Codemagic 控制台，不进仓库
+本项目代码不含任何密钥：
+- 签名证书、ASC API key 都在 CI 控制台，不进仓库
 - 数据库和照片是运行时数据，不进仓库
+- 访问令牌不写进任何文件、不写入 git remote
 
-所以公开仓库是安全的。**如果你还是想私有，也能用** —— 每月 200 分钟足够（一次构建约 8–12 分钟）。
-
----
-
-## 四、生成访问令牌
-
-头像 → **Settings** → 侧栏最下 **Developer settings** → **Personal access tokens** → **Tokens (classic)** → **Generate new token (classic)**
-
-| 项 | 填什么 |
-|---|---|
-| Note | `familywardrobe` |
-| Expiration | `1 year` |
-| Scopes | 勾选 **`repo`** |
-
-点 Generate，复制 `ghp_...` —— **只显示这一次**。
+所以公开仓库是安全的。**仍想私有也能用**，一次构建约 8–12 分钟，每月 200 分钟够用。
 
 ---
 
-## 五、发给我
+## 三、生成访问令牌（唯一需要你做的）
+
+**直接打开这个链接**（权限和用途已预填，浏览器里已登录所以会直接显示表单）：
 
 ```
-仓库地址：https://github.com/cq-tyl/FamilyWardrobe.git
-访问令牌：ghp_xxxxxxxxxxxxxxxxxxxx
+https://github.com/settings/tokens/new?scopes=repo,workflow&description=FamilyWardrobe
+```
+
+然后：
+
+| 检查项 | 要求 |
+|---|---|
+| 页面标题 | 必须是 **Tokens (classic)**。若显示 Fine-grained tokens，点左侧「Tokens (classic)」 |
+| Note | `FamilyWardrobe`（链接已预填） |
+| Expiration | 建议 `7 days` —— 只用一次，够短更安全 |
+| Scopes | **`repo`** 必须勾上（链接已预填）；`workflow` 用于触发 Actions |
+
+滚到最底点 **Generate token**，复制 `ghp_...`（**只显示这一次**）。
+
+---
+
+## 四、发给我
+
+只要这一行：
+
+```
+ghp_xxxxxxxxxxxxxxxxxxxx
 ```
 
 **令牌安全**：
-- 我只用它推这一次代码，不写进任何文件
-- 推完建议立刻吊销：Settings → Developer settings → Personal access tokens → Delete
-- 每次更新需要新令牌时重新生成一个即可
+- 只用于本次推送，不写进任何文件、不写入 `.git/config`
+- 脚本推完会自检 remote 里是否残留令牌（应为 0 处）
+- 推完请立刻吊销：<https://github.com/settings/tokens> → Delete
+- 以后需要再次推送时重新生成一个即可
 
 ---
 
-## 六、我做的部分
+## 五、我做的部分
 
 ```bash
-bash Tools/push-to-github.sh <仓库地址> <访问令牌>
+bash Tools/setup-github.sh ghp_xxxxxxxxxxxxxxxxxxxx
 ```
 
-脚本会校验令牌、设置 remote、推送 main 分支，并提示下一步。
+脚本依次完成：校验令牌 → 取用户名 → 建 Public 仓库 → `master` 改 `main`
+→ 推送 7 个提交 → 设置干净的 remote → 打印 Actions 页面地址。
+
+推送后 `main` 分支会自动触发一次构建（workflow 的 `push` 触发器）。
+也可以在 Actions 页面手动点 **Run workflow**，把「是否运行测试」设为 false 先快出包。
 
 ---
 
-## 七、触发云端编译
+## 六、触发云端编译
 
 推完之后你可以在 GitHub 页面点：
 
@@ -136,7 +129,7 @@ bash Tools/push-to-github.sh <仓库地址> <访问令牌>
 
 ---
 
-## 八、装到 iPhone（方案 A · 免费侧载）
+## 七、装到 iPhone（方案 A · 免费侧载）
 
 ### 1. 下载并安装 Sideloadly
 
@@ -171,7 +164,7 @@ bash Tools/push-to-github.sh <仓库地址> <访问令牌>
 
 ---
 
-## 九、方案 B · 正式分发（TestFlight / Ad Hoc）
+## 八、方案 B · 正式分发（TestFlight / Ad Hoc）
 
 适合「确定要长期用、家里人多设备、不想每周重签」的情况。
 
@@ -204,7 +197,7 @@ python cm_build.py start --app familywardrobe --workflow adhoc     # Ad Hoc
 
 ---
 
-## 十、bundle id 的重要提醒
+## 九、bundle id 的重要提醒
 
 **`com.familywardrobe.app` 一旦用在真机上，就永远不能改。**
 
@@ -215,7 +208,7 @@ python cm_build.py start --app familywardrobe --workflow adhoc     # Ad Hoc
 
 ---
 
-## 十一、成本参考
+## 十、成本参考
 
 | 项目 | 方案 A（侧载） | 方案 B（Codemagic） |
 |---|---|---|
@@ -230,7 +223,7 @@ python cm_build.py start --app familywardrobe --workflow adhoc     # Ad Hoc
 
 ---
 
-## 十二、常见问题
+## 十一、常见问题
 
 **Q：公开仓库会不会泄露代码？**
 本项目仓库里只有 Swift 源码、测试和文档。签名证书、ASC 密钥都在 Codemagic 控制台；
