@@ -117,11 +117,11 @@ struct RecommendationEngine {
             // 已归档的不参与
             guard !garment.archived else { return false }
             // 季节：没标季节视为四季通用
-            guard garment.seasons.isEmpty || garment.seasons.contains(season.rawValue) else {
+            guard garment.seasons.isEmpty || garment.seasons.contains(season) else {
                 return false
             }
             // 场合：没标场合视为通用
-            guard garment.occasions.isEmpty || garment.occasions.contains(occasion.rawValue) else {
+            guard garment.occasions.isEmpty || garment.occasions.contains(occasion) else {
                 return false
             }
             return true
@@ -216,12 +216,12 @@ struct RecommendationEngine {
         // 而后者才是完整度更高的搭配，不能被前面的两件套挤掉。
         var deduped: [Recommendation] = []
         for candidate in scored {
-            let layerSet = Set(candidate.garments.map(\.layer))
+            let layerSet = Set(candidate.garments.map { $0.layer })
             let isDuplicate = deduped.contains { existing in
-                let existingIDs = Set(existing.garments.map(\.id))
-                let candidateIDs = Set(candidate.garments.map(\.id))
+                let existingIDs = Set(existing.garments.map { $0.id })
+                let candidateIDs = Set(candidate.garments.map { $0.id })
                 let overlap = existingIDs.intersection(candidateIDs)
-                return !overlap.isEmpty && layerSet == Set(existing.garments.map(\.layer))
+                return !overlap.isEmpty && layerSet == Set(existing.garments.map { $0.layer })
             }
             if !isDuplicate {
                 deduped.append(candidate)
@@ -264,7 +264,7 @@ struct RecommendationEngine {
 
         // 权重：分数越高权重越大，但闲置久的单品额外加权（唤醒闲置）
         var results: [Recommendation] = []
-        var usedIDs = Set<UUID>()
+        var usedIDs: [Set<UUID>] = []
 
         for _ in 0..<count {
             let weights = scored.map { recommendation -> Double in
@@ -283,7 +283,7 @@ struct RecommendationEngine {
             // 避免连续抽到同一套
             let signature = Set(chosen.garments.map(\.id))
             if usedIDs.contains(signature) { continue }
-            usedIDs.insert(signature)
+            usedIDs.append(signature)
 
             results.append(chosen)
         }
@@ -480,7 +480,7 @@ struct RecommendationEngine {
             score += 8
             text = "上装 + 下装 + 鞋，配齐了"
         } else {
-            let missing: [String] = []
+            var missing: [String] = []
             if !hasTop { missing.append("上衣") }
             if !hasBottom { missing.append("下装") }
             if !hasShoes { missing.append("鞋") }
@@ -524,7 +524,7 @@ struct RecommendationEngine {
         var score = weights.preference
         var text: String?
 
-        let matched = garments.filter { $0.occasions.contains(occasion.rawValue) }.count
+        let matched = garments.filter { $0.occasions.contains(occasion) }.count
         if matched == garments.count && !garments.isEmpty {
             score += 8
             text = "全部单品都适合\(occasion.displayName)"

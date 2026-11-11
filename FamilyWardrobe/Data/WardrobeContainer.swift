@@ -38,7 +38,7 @@ enum WardrobeContainer {
     }
 
     /// 当前 schema 版本字符串
-    static var currentSchemaVersion: String {
+    nonisolated static var currentSchemaVersion: String {
         let v = CurrentSchema.versionIdentifier
         return "\(v.major).\(v.minor).\(v.patch)"
     }

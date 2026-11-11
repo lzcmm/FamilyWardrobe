@@ -361,7 +361,7 @@ struct TryOnView: View {
             let result = await Task.detached(priority: .userInitiated) { () -> UIImage? in
                 TryOnPipeline.composeRaw(
                     bodyImage: body.value,
-                    garmentImages: items.map { $0.value },
+                    garmentImages: items.map { $0.value.image },
                     poseIndex: pose
                 )
             }.value
@@ -375,7 +375,6 @@ struct TryOnView: View {
 
     /// 记录今天 —— **与今天页共用同一写入路径**
     private func recordToday() {
-        guard let profileID else { return }
         let ids = selectedGarments.map(\.id)
         guard !ids.isEmpty else { return }
 

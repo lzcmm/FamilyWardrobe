@@ -60,14 +60,15 @@ enum TryOnPipeline {
         }
 
         // 未命中：实时计算
-        guard let source = sourceImage(for: garment), let body = bodyImage(poseIndex: poseIndex) else {
+        guard let source = sourceImage(for: garment),
+              let body = boardImage(profileID: garment.profileID, poseIndex: poseIndex) else {
             return nil
         }
 
         let result = composeLayer(garmentImage: source, bodyImage: body)
         if let result {
             if let data = result.pngData() {
-                try? data.write(to: cached, options: .atomic)
+                try? data.write(to: cached)
             }
         }
         return result
@@ -108,7 +109,8 @@ enum TryOnPipeline {
 
         let context = CIContext(options: [.useSoftwareRenderer: false])
 
-        var current = CIImage(image: bodyImage)
+        guard let base = CIImage(image: bodyImage) else { return bodyImage }
+        var current = base
 
         // 按遮挡顺序由后到前叠放。
         // ⚠️ 顺序必须由 WearLayer.overlayOrder 派生，不能手写。
@@ -121,9 +123,9 @@ enum TryOnPipeline {
         }
 
         // 光影统一：整图做一次，避免分层各做一次破坏层间一致性
-        let unified = unifyLighting(current, reference: CIImage(image: bodyImage))
+        let unified = unifyLighting(current, reference: base)
 
-        guard let result = context.createCGImage(unified, from: current.extent) else { return bodyImage }
+        guard let result = context.createCGImage(unified, from: unified.extent) else { return bodyImage }
         return UIImage(cgImage: result)
     }
 
@@ -338,11 +340,15 @@ enum TryOnPipeline {
             }
             if let left = points[.leftHip], let right = points[.rightHip],
                left.confidence > 0.3, right.confidence > 0.3 {
-                anchors.hips = CGPoint(
+                let hips = CGPoint(
                     x: (left.location.x + right.location.x) / 2,
                     y: (left.location.y + right.location.y) / 2
                 )
-                anchors.waist = CGPoint(x: anchors.hips.x, y: (anchors.hips.y + (anchors.shoulders?.y ?? anchors.hips.y)) / 2)
+                anchors.hips = hips
+                anchors.waist = CGPoint(
+                    x: hips.x,
+                    y: (hips.y + (anchors.shoulders?.y ?? hips.y)) / 2
+                )
             }
             if let left = points[.leftKnee], let right = points[.rightKnee],
                left.confidence > 0.3, right.confidence > 0.3 {
@@ -446,14 +452,14 @@ enum TryOnPipeline {
         let extent = image.extent
         let scale = min(32.0 / extent.width, 32.0 / extent.height)
 
-        guard context.render(
+        context.render(
             image.transformed(by: CGAffineTransform(scaleX: scale, y: scale)),
             toBitmap: &pixels,
             rowBytes: 32 * 4,
             bounds: CGRect(x: 0, y: 0, width: 32, height: 32),
             format: .RGBA8,
-            colorSpace: .sRGB
-        ) != nil else { return 0 }
+            colorSpace: CGColorSpaceCreateDeviceRGB()
+        )
 
         var sum = 0.0
         for i in stride(from: 0, to: pixels.count, by: 4) {

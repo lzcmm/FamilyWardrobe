@@ -79,10 +79,13 @@ struct ThumbnailRow<Item: Identifiable, Content: View>: View {
         .mask(alignment: .trailing) {
             // 右缘渐隐遮罩
             LinearGradient(
-                colors: [.black, .black, .black.opacity(0)],
+                stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: 0.94),
+                    .init(color: .black.opacity(0), location: 1)
+                ],
                 startPoint: .leading,
-                endPoint: .trailing,
-                stopPositions: [0, 0.94, 1]
+                endPoint: .trailing
             )
         }
     }

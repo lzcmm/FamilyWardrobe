@@ -174,19 +174,29 @@ enum BackupExporter {
             .replacingOccurrences(of: ":", with: "-")
         let target = StoreBackup.exportDirectory.appending(path: "家庭衣橱备份-\(stamp).zip")
 
-        let staging = StoreBackup.exportDirectory.appending(path: "staging-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try? fm.createDirectory(at: staging, withIntermediateDirectories: true)
+        var entries: [ZipWriter.Entry] = []
 
-        if fm.fileExists(atPath: StoreBackup.storeURL.path) {
-            try? fm.copyItem(at: StoreBackup.storeURL, to: staging.appending(path: "FamilyWardrobe.store"))
+        // 数据库
+        if fm.fileExists(atPath: StoreBackup.storeURL.path),
+           let database = try? Data(contentsOf: StoreBackup.storeURL) {
+            entries.append(ZipWriter.Entry(relativePath: "FamilyWardrobe.store", data: database))
         }
 
-        let assets = staging.appending(path: "Assets", directoryHint: .isDirectory)
-        try? fm.createDirectory(at: assets, withIntermediateDirectories: true)
-        let garmentsRoot = StoreBackup.assetsDirectory.appending(path: "garments", directoryHint: .isDirectory)
-        if let dirs = try? fm.contentsOfDirectory(at: garmentsRoot, includingPropertiesForKeys: nil) {
-            for dir in dirs {
-                try? fm.copyItem(at: dir, to: assets.appending(path: dir.lastPathComponent))
+        // 照片：递归收集，保持相对目录结构
+        let garmentsRoot = StoreBackup.assetsDirectory.appending(
+            path: "garments", directoryHint: .isDirectory
+        )
+        if let enumerator = fm.enumerator(
+            at: garmentsRoot, includingPropertiesForKeys: [.isDirectoryKey]
+        ) {
+            for case let fileURL as URL in enumerator {
+                var isDirectory: ObjCBool = false
+                guard fm.fileExists(atPath: fileURL.path, isDirectory: &isDirectory),
+                      !isDirectory.boolValue,
+                      let data = try? Data(contentsOf: fileURL) else { continue }
+                let relative = "Assets/garments/" + fileURL.path
+                    .replacingOccurrences(of: garmentsRoot.path + "/", with: "")
+                entries.append(ZipWriter.Entry(relativePath: relative, data: data))
             }
         }
 
@@ -196,24 +206,17 @@ enum BackupExporter {
         数据库版本：\(WardrobeContainer.currentSchemaVersion)
         照片目录：Assets/garments/<单品ID>/
         恢复方式：解压后把 FamilyWardrobe.store 放回 App 沙盒对应位置，
-                Assets 目录内容合并到沙盒 Assets 目录。
+                 Assets 目录内容合并到沙盒 Assets 目录。
         """
-        try? manifest.write(
-            to: staging.appending(path: "README.txt"),
-            atomically: true,
-            encoding: .utf8
-        )
+        if let readme = manifest.data(using: .utf8) {
+            entries.append(ZipWriter.Entry(relativePath: "README.txt", data: readme))
+        }
 
-        let task = Process()
-        task.launchPath = "/usr/bin/ditto"
-        task.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent", staging.path, target.path]
-        task.standardOutput = nil
-        task.standardError = nil
-        try? task.run()
-        task.waitUntilExit()
-
-        try? fm.removeItem(at: staging)
-
+        do {
+            try ZipWriter.create(at: target, entries: entries)
+        } catch {
+            return nil
+        }
         return fm.fileExists(atPath: target.path) ? target : nil
     }
 }

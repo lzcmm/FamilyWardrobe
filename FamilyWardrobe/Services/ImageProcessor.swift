@@ -249,26 +249,26 @@ enum ImageProcessor {
         let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
         let context = CIContext(options: nil)
-        guard let data = context.render(
+        var pixels = [UInt8](repeating: 0, count: 32 * 32 * 4)
+        // render 返回 Void，不能 guard let；结果直接落在 pixels 里
+        context.render(
             scaled,
-            toBitmap: &([UInt8](repeating: 0, count: 32 * 32 * 4)),
+            toBitmap: &pixels,
             rowBytes: 32 * 4,
             bounds: CGRect(x: 0, y: 0, width: 32, height: 32),
             format: .RGBA8,
-            colorSpace: .sRGB
-        ) else {
-            return ColorGuess(hex: "#CCCCCC", name: "灰色", isBright: true, isNeutral: true)
-        }
+            colorSpace: CGColorSpaceCreateDeviceRGB()
+        )
 
         var buckets: [Int: (r: Int, g: Int, b: Int, n: Int)] = [:]
 
         for y in 0..<32 {
             for x in 0..<32 {
                 let idx = (y * 32 + x) * 4
-                let r = Int(data[idx])
-                let g = Int(data[idx + 1])
-                let b = Int(data[idx + 2])
-                let a = Int(data[idx + 3])
+                let r = Int(pixels[idx])
+                let g = Int(pixels[idx + 1])
+                let b = Int(pixels[idx + 2])
+                let a = Int(pixels[idx + 3])
                 guard a > 128 else { continue }
 
                 // 量化到 4 级，合并相近色

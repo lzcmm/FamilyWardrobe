@@ -24,6 +24,10 @@ struct TodayView: View {
 
     private var engine = RecommendationEngine()
 
+    init(profileID: UUID?) {
+        self.profileID = profileID
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {

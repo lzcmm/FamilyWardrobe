@@ -64,9 +64,9 @@ struct CalendarView: View {
                 .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.Palette.textSecondary)
             HStack(spacing: 2) {
-                ForEach(DayColorScale.steps, id: \.self) { step in
+                ForEach(0..<DayColorScale.steps.count, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(step)
+                        .fill(DayColorScale.steps[index])
                         .frame(width: 16, height: 10)
                 }
             }

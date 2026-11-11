@@ -117,8 +117,10 @@ enum StoreBackup {
             throw BackupError.openFailed
         }
         defer { sqlite3_close(db) }
-        // SQLITE_CHECKPOINT_TRUNCATE = 3
-        let rc = sqlite3_wal_checkpoint_v2(db, nil, nil, 3)
+        // SQLITE_CHECKPOINT_TRUNCATE = 3；最后两个是出参（日志帧数 / 已 checkpoint 帧数）
+        var logFrames: Int32 = 0
+        var checkpointedFrames: Int32 = 0
+        let rc = sqlite3_wal_checkpoint_v2(db, nil, 3, &logFrames, &checkpointedFrames)
         guard rc == SQLITE_OK else { throw BackupError.checkpointFailed }
     }
 
