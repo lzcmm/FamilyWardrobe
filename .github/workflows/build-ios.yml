@@ -152,7 +152,7 @@ jobs:
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ PROJECT_NAME }}-unsigned-ipa
+          name: FamilyWardrobe-unsigned-ipa
           path: artifacts/*.ipa
           retention-days: 30
           if-no-files-found: error
@@ -160,7 +160,7 @@ jobs:
       - name: Upload simulator app
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ PROJECT_NAME }}-simulator-app
+          name: FamilyWardrobe-simulator-app
           path: build/Build/Products/Debug-iphonesimulator/*.app
           retention-days: 30
           if-no-files-found: ignore

@@ -27,3 +27,7 @@ Tools/LogicTest/node_modules/
 Tools/LogicTest/package-lock.json
 Tools/LogicTest/shot-*.png
 generated-images/
+
+# GitHub 接入脚本的临时响应/日志（脚本退出时自动清理，双保险）
+.gh-*.tmp.json
+.gh-logs.zip

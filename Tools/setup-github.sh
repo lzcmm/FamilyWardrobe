@@ -20,6 +20,12 @@ set -euo pipefail
 TOKEN="${1:-}"
 REPO_NAME="${2:-FamilyWardrobe}"
 
+# Git Bash 的 /tmp 与 Windows 原生 Python 的 /tmp 不是同一目录，
+# 临时文件必须用工作区相对路径，且退出时清理，避免令牌/响应残留。
+USER_JSON="./.gh-user.tmp.json"
+REPO_JSON="./.gh-repo.tmp.json"
+trap 'rm -f "$USER_JSON" "$REPO_JSON"' EXIT
+
 if [ -z "$TOKEN" ]; then
   echo "用法: bash Tools/setup-github.sh <访问令牌> [仓库名]"
   echo ""
@@ -32,28 +38,28 @@ API="https://api.github.com"
 AUTH="Authorization: Bearer $TOKEN"
 
 echo "==> 1/5 校验令牌..."
-HTTP=$(curl -s -o /tmp/gh-user.json -w "%{http_code}" \
+HTTP=$(curl -s -o "$USER_JSON" -w "%{http_code}" \
   -H "$AUTH" -H "Accept: application/vnd.github+json" "$API/user")
 if [ "$HTTP" != "200" ]; then
   echo "❌ 令牌无效（HTTP $HTTP）。请确认："
   echo "   - 复制完整，没有多余空格"
   echo "   - 是 Tokens (classic) 且勾选了 repo 权限"
   echo "   - 没有过期"
-  cat /tmp/gh-user.json 2>/dev/null | head -c 300; echo
+  head -c 300 "$USER_JSON" 2>/dev/null; echo
   exit 1
 fi
-USER_NAME=$(python -c "import json,io; print(json.load(io.open('/tmp/gh-user.json',encoding='utf-8'))['login'])")
+USER_NAME=$(USER_JSON_PATH="$USER_JSON" python -c "import json,io,os; print(json.load(io.open(os.environ['USER_JSON_PATH'],encoding='utf-8'))['login'])")
 echo "    ✓ 已登录账号: $USER_NAME"
 
 echo "==> 2/5 创建公开仓库 $REPO_NAME ..."
-HTTP=$(curl -s -o /tmp/gh-repo.json -w "%{http_code}" -X POST \
+HTTP=$(curl -s -o "$REPO_JSON" -w "%{http_code}" -X POST \
   -H "$AUTH" -H "Accept: application/vnd.github+json" \
   "$API/user/repos" \
   -d "{\"name\":\"$REPO_NAME\",\"description\":\"家庭衣橱 · 离线 iOS App\",\"private\":false,\"auto_init\":false,\"has_issues\":false,\"has_wiki\":false,\"has_projects\":false}")
 case "$HTTP" in
   201) echo "    ✓ 仓库已创建（Public）" ;;
   422) echo "    ✓ 仓库已存在，直接复用" ;;
-  *)   echo "❌ 创建失败（HTTP $HTTP）"; head -c 400 /tmp/gh-repo.json; echo; exit 1 ;;
+  *)   echo "❌ 创建失败（HTTP $HTTP）"; head -c 400 "$REPO_JSON"; echo; exit 1 ;;
 esac
 
 CLEAN_URL="https://github.com/$USER_NAME/$REPO_NAME.git"
