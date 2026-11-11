@@ -31,3 +31,8 @@ generated-images/
 # GitHub 接入脚本的临时响应/日志（脚本退出时自动清理，双保险）
 .gh-*.tmp.json
 .gh-logs.zip
+.gh-headers.txt
+.job-log.txt
+.build-logs.zip
+.run-logs.zip
+.run-logs.txt

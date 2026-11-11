@@ -64,20 +64,22 @@ jobs:
         run: |
           echo "Available Xcode versions:"
           ls -d /Applications/Xcode*.app || true
-          # 优先 Xcode 16.x：项目用 Swift 5 语言模式 + iOS 17 部署目标，与 Xcode 16 最匹配；
-          # 避免 tail -1 意外选到 Xcode 26 后触发 Swift 6 的严格并发检查。
-          XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort | tail -1)
-          if [ -z "$XCODE" ]; then
-            XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | grep -v beta | sort | tail -1)
+          # 必须显式固定版本，不能用 sort | tail -1：
+          # 字母序下 Xcode_16.app 会排在 Xcode_16.4.app 之后（'a' > '4'），
+          # 结果选中 Xcode 16.0，而 runner 只有 iOS 18.5+ runtime，
+          # 报 "iOS 18.0 is not installed" / 找不到 destination（run 43030828292）。
+          XCODE="/Applications/Xcode_16.4.app"
+          if [ ! -d "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode_16.*.app 2>/dev/null | sort | tail -1)
           fi
-          if [ -z "$XCODE" ]; then
-            echo "❌ 未找到 Xcode"
-            exit 1
+          if [ -z "$XCODE" ] || [ ! -d "$XCODE" ]; then
+            # 最后退回 runner 默认（xcode-select -p 给的是 Developer 目录）
+            XCODE=$(xcode-select -p | sed 's|/Contents/Developer$||')
           fi
           echo "Using $XCODE"
-          # xcode-select 要的是 Developer 目录，不是 .app bundle
           sudo xcode-select -switch "${XCODE}/Contents/Developer"
           xcodebuild -version
+          xcodebuild -showsdks | grep -i "iOS" | head -10 || true
 
       - name: Install XcodeGen
         run: |
@@ -111,6 +113,8 @@ jobs:
           grep -E "Test Suite|Executed [0-9]+ test" test-output.log | tail -20 || true
 
       - name: Build simulator app
+        # 模拟器产物只是附加预览，不能因为 destination 问题挡住真机 ipa
+        continue-on-error: true
         run: |
           set -o pipefail
           # 用 generic destination，不绑定具体机型名，避免 runner 上找不到该模拟器
@@ -178,7 +182,8 @@ jobs:
           if-no-files-found: ignore
 
       - name: Print compile errors
-        if: failure()
+        # 无论成功失败都打印，便于从日志里直接看 Swift 诊断
+        if: always()
         run: |
           echo "========== 编译器错误（修复依据）=========="
           for f in build-output.log build-device-output.log test-output.log; do
