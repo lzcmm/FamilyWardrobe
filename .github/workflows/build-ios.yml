@@ -44,8 +44,11 @@ concurrency:
 jobs:
   build:
     name: Build iOS
-    # macOS 15 runner 自带 Xcode 16.x：支持 Swift Testing，iOS 17 部署目标够用
-    runs-on: macos-15
+    # macOS 15 Intel runner 是独立的容量池（4 核 / 14 GB，公开仓库免费无限）。
+    # 不要用 macos-15：那个 label 指向 arm64 M1 池（3 核 / 7 GB），
+    # 容量紧张时会出现 "job was not acquired by Runner ... even after multiple attempts"
+    # 并在排队十几分钟后被取消（run 43028031930 就是这么挂的）。
+    runs-on: macos-15-intel
     timeout-minutes: 45
 
     env:
@@ -60,11 +63,20 @@ jobs:
       - name: Select Xcode
         run: |
           echo "Available Xcode versions:"
-          ls /Applications | grep Xcode
-          # 选一个稳定版本（不含 beta）
-          XCODE=$(ls /Applications | grep -E '^Xcode' | grep -v beta | tail -1)
+          ls -d /Applications/Xcode*.app || true
+          # 优先 Xcode 16.x：项目用 Swift 5 语言模式 + iOS 17 部署目标，与 Xcode 16 最匹配；
+          # 避免 tail -1 意外选到 Xcode 26 后触发 Swift 6 的严格并发检查。
+          XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort | tail -1)
+          if [ -z "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | grep -v beta | sort | tail -1)
+          fi
+          if [ -z "$XCODE" ]; then
+            echo "❌ 未找到 Xcode"
+            exit 1
+          fi
           echo "Using $XCODE"
-          sudo xcode-select -switch /Applications/$XCODE
+          # xcode-select 要的是 Developer 目录，不是 .app bundle
+          sudo xcode-select -switch "${XCODE}/Contents/Developer"
           xcodebuild -version
 
       - name: Install XcodeGen
